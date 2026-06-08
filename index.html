@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>组会报告顺序抽签 (Bmob版)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; text-align: center; background-color: #f4f6f9; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        h2 { color: #2c3e50; margin-top: 0; }
+        select, input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #4caf50; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .rank-list { text-align: left; margin-top: 15px; }
+        .rank-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #edf2f7; align-items: center; }
+        .rank-number { font-weight: bold; color: #e53e3e; margin-right: 10px; }
+        .tag { background: #ebf8ff; color: #2b6cb0; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>🎲 组会报告顺序抽签</h2>
+        <label for="sessionSelect" style="display:block; text-align:left; font-size:14px; color:#666;">选择汇报场次：</label>
+        <select id="sessionSelect" onchange="loadRankings()">
+            <option value="2026-06">六月汇报</option>
+            <option value="2026-08">八月汇报</option>
+            <option value="2026-09">九月汇报</option>
+        </select>
+        <input type="text" id="userName" placeholder="请输入你的真实姓名" required />
+        <button id="rollBtn" onclick="rollMyDice()">投掷我的骰子 🎲</button>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-top:0; text-align:left; display:flex; justify-content:space-between;">
+            <span>📋 实时出场顺序排名</span>
+            <button onclick="loadRankings()" style="width:auto; padding:4px 10px; margin:0; font-size:12px; background:#3182ce;">手动刷新</button>
+        </h3>
+        <div id="leaderboard" class="rank-list">正在同步云端数据...</div>
+    </div>
+
+    <script>
+        // ==================== 🔑 密钥配置区 ====================
+        // 已自动填入你提供的 Bmob 应用凭证
+        const BMOB_APP_ID = '7b7193db1ca0ae02b020f4390bbc9310';
+        const BMOB_REST_KEY = 'f09a38c4488e3f142c385260da42437d';
+        // =====================================================
+
+        const headers = {
+            "X-Bmob-Application-Id": BMOB_APP_ID,
+            "X-Bmob-REST-API-Key": BMOB_REST_KEY,
+            "Content-Type": "application/json"
+        };
+
+        window.onload = function() {
+            loadRankings();
+            // 每 5 秒自动帮全组同学刷新一次屏幕，看到最新排名
+            setInterval(loadRankings, 5000);
+        };
+
+        // 投掷骰子并上传结果
+        async function rollMyDice() {
+            const name = document.getElementById('userName').value.trim();
+            const session = document.getElementById('sessionSelect').value;
+            const sessionName = document.getElementById('sessionSelect').selectedOptions[0].text;
+            const rollBtn = document.getElementById('rollBtn');
+
+            if (!name) {
+                alert('请输入名字后再摇骰子！');
+                return;
+            }
+
+            rollBtn.disabled = true;
+            rollBtn.innerText = '正在记录结果...';
+
+            try {
+                // 1. 严格防作弊：查询该场次下该名字是否已经存在
+                const where = encodeURIComponent(JSON.stringify({ "session": session, "name": name }));
+                const checkRes = await fetch(`https://api.bmobcloud.com/1/classes/DiceResult?where=${where}`, { headers });
+                const checkData = await checkRes.json();
+
+                if (checkData.results && checkData.results.length > 0) {
+                    alert(`【⚠️ 提示】${name}，你在【${sessionName}】中已经摇过骰子了，每人每场只能摇一次哦！`);
+                    return;
+                }
+
+                // 2. 生成 1-6 随机点数，并加入极小的随机权重防止排序完全等值冲突
+                const score = Math.floor(Math.random() * 6) + 1;
+                const finalScore = score + Math.random();
+
+                // 3. 将结果发送给 Bmob 数据库保存
+                const saveRes = await fetch('https://api.bmobcloud.com/1/classes/DiceResult', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ name, session, score, finalScore })
+                });
+
+                if(saveRes.ok) {
+                    alert(`🎲 摇号成功！你摇到了 ${score} 点！`);
+                    document.getElementById('userName').value = ''; // 摇完清空输入框
+                    loadRankings(); // 立即刷新
+                } else {
+                    alert('数据保存失败，请检查 Bmob 后台是否创建了 DiceResult 数据表。');
+                }
+            } catch (e) {
+                alert('网络错误，请稍后重试！');
+            } finally {
+                rollBtn.disabled = false;
+                rollBtn.innerText = '投掷我的骰子 🎲';
+            }
+        }
+
+        // 实时从云端拉取并根据分数高低排序
+        async function loadRankings() {
+            const session = document.getElementById('sessionSelect').value;
+            const leaderboard = document.getElementById('leaderboard');
+
+            try {
+                const where = encodeURIComponent(JSON.stringify({ "session": session }));
+                // -finalScore 代表按照分数降序排列（点数大的在前面）
+                const res = await fetch(`https://api.bmobcloud.com/1/classes/DiceResult?where=${where}&order=-finalScore`, { headers });
+                const data = await res.json();
+
+                if (!data.results || data.results.length === 0) {
+                    leaderboard.innerHTML = '<p style="color:#999; text-align:center;">🎉 本场汇报暂无同学摇号，快来占领第一棒！</p>';
+                    return;
+                }
+
+                let html = '';
+                data.results.forEach((item, index) => {
+                    html += `
+                        <div class="rank-item">
+                            <div><span class="rank-number">第 ${index + 1} 棒</span><strong>${item.name}</strong></div>
+                            <span class="tag">🎲 ${item.score} 点</span>
+                        </div>`;
+                });
+                leaderboard.innerHTML = html;
+            } catch (e) {
+                leaderboard.innerHTML = '<p style="color:#e53e3e; text-align:center;">⚠️ 数据加载失败，请刷新页面。</p>';
+            }
+        }
+    </script>
+</body>
+</html>
