@@ -3,38 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>组会报告顺序抽签 (Bmob版)</title>
+    <title>组会报告顺序抽签 (动态场次版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; text-align: center; background-color: #f4f6f9; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
-        h2 { color: #2c3e50; margin-top: 0; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; text-align: left; }
+        h2, h3 { color: #2c3e50; margin-top: 0; text-align: center; }
+        label { display: block; margin-top: 10px; font-size: 14px; color: #666; }
         select, input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
         button { background-color: #4caf50; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
         button:hover { background-color: #45a049; }
         button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .btn-admin { background-color: #718096; font-size: 14px; padding: 8px; }
+        .btn-admin:hover { background-color: #4a5568; }
+        .btn-danger { background-color: #e53e3e; font-size: 12px; width: auto; padding: 4px 8px; margin: 0; }
+        .btn-danger:hover { background-color: #c53030; }
         .rank-list { text-align: left; margin-top: 15px; }
         .rank-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #edf2f7; align-items: center; }
-        .rank-number { font-weight: bold; color: #e53e3e; margin-right: 10px; }
-        .tag { background: #ebf8ff; color: #2b6cb0; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        .rank-number { font-weight: bold; color: #3182ce; margin-right: 10px; }
+        .tag { background: #fff5f5; color: #c53030; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .admin-section { border-top: 1px dashed #cbd5e0; margin-top: 15px; padding-top: 15px; display: none; }
+        .session-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dotted #e2e8f0; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <h2>🎲 组会报告顺序抽签</h2>
-        <label for="sessionSelect" style="display:block; text-align:left; font-size:14px; color:#666;">选择汇报场次：</label>
+
+        <label for="sessionSelect">选择汇报场次：</label>
         <select id="sessionSelect" onchange="loadRankings()">
-            <option value="2026-06">六月汇报</option>
-            <option value="2026-08">八月汇报</option>
-            <option value="2026-09">九月汇报</option>
+            <option value="">正在加载场次列表...</option>
         </select>
+
         <input type="text" id="userName" placeholder="请输入你的真实姓名" required />
         <button id="rollBtn" onclick="rollMyDice()">投掷我的骰子 🎲</button>
+
+        <button class="btn-admin" onclick="toggleAdmin()">⚙️ 管理员设置（增删场次）</button>
+
+        <div id="adminPanel" class="admin-section">
+            <h3>管理汇报场次</h3>
+            <input type="text" id="newSessionName" placeholder="输入新场次名称 (如: 2026年9月汇报)" />
+            <button onclick="addSession()" style="background-color: #3182ce;">添加此场次</button>
+            <label>当前已有场次（删除场次不会删除对应已投的点数）：</label>
+            <div id="adminSessionList"></div>
+        </div>
     </div>
 
     <div class="card">
-        <h3 style="margin-top:0; text-align:left; display:flex; justify-content:space-between;">
-            <span>📋 实时出场顺序排名</span>
+        <h3 style="display:flex; justify-content:space-between; align-items:center; margin:0;">
+            <span>📋 出场顺序排名 (点数小优先)</span>
             <button onclick="loadRankings()" style="width:auto; padding:4px 10px; margin:0; font-size:12px; background:#3182ce;">手动刷新</button>
         </h3>
         <div id="leaderboard" class="rank-list">正在同步云端数据...</div>
@@ -42,7 +59,6 @@
 
     <script>
         // ==================== 🔑 密钥配置区 ====================
-        // 已自动填入你提供的 Bmob 应用凭证
         const BMOB_APP_ID = '7b7193db1ca0ae02b020f4390bbc9310';
         const BMOB_REST_KEY = 'f09a38c4488e3f142c385260da42437d';
         // =====================================================
@@ -53,55 +69,141 @@
             "Content-Type": "application/json"
         };
 
-        window.onload = function() {
-            loadRankings();
-            // 每 5 秒自动帮全组同学刷新一次屏幕，看到最新排名
-            setInterval(loadRankings, 5000);
+        window.onload = async function() {
+            await syncSessions(); // 先加载场次下拉列表
+            loadRankings();       // 再加载当前场次的排名
+            setInterval(loadRankings, 5000); // 每5秒自动同步一次排名
         };
 
-        // 投掷骰子并上传结果
+        function toggleAdmin() {
+            const panel = document.getElementById('adminPanel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // ==================== 🛠️ 场次增删逻辑 ====================
+
+        // 从云端获取所有场次并刷新下拉框和管理列表
+        async function syncSessions() {
+            try {
+                const res = await fetch('https://api.bmobcloud.com/1/classes/DiceSession?order=-createdAt', { headers });
+                const data = await res.json();
+
+                const select = document.getElementById('sessionSelect');
+                const adminList = document.getElementById('adminSessionList');
+
+                // 保存当前选中的值，避免刷新时被重置
+                const currentSelected = select.value;
+
+                if (!data.results || data.results.length === 0) {
+                    select.innerHTML = '<option value="">暂无可用场次，请先添加</option>';
+                    adminList.innerHTML = '<p style="color:#999;font-size:12px;">暂无场次</p>';
+                    return;
+                }
+
+                let selectHtml = '';
+                let adminHtml = '';
+
+                data.results.forEach(item => {
+                    selectHtml += `<option value="${item.objectId}">${item.sessionName}</option>`;
+                    adminHtml += `
+                        <div class="session-item">
+                            <span>${item.sessionName}</span>
+                            <button class="btn-danger" onclick="deleteSession('${item.objectId}')">删除</button>
+                        </div>`;
+                });
+
+                select.innerHTML = selectHtml;
+                adminList.innerHTML = adminHtml;
+
+                // 恢复之前的选择
+                if (currentSelected && select.querySelector(`option[value="${currentSelected}"]`)) {
+                    select.value = currentSelected;
+                }
+            } catch (e) {
+                console.error("同步场次失败", e);
+            }
+        }
+
+        // 添加新场次
+        async function addSession() {
+            const input = document.getElementById('newSessionName');
+            const name = input.value.trim();
+            if (!name) { alert('请输入场次名称！'); return; }
+
+            try {
+                const res = await fetch('https://api.bmobcloud.com/1/classes/DiceSession', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ sessionName: name })
+                });
+                if (res.ok) {
+                    input.value = '';
+                    alert('场次添加成功！');
+                    await syncSessions();
+                    loadRankings(); // 切换到新生成的表
+                }
+            } catch (e) { alert('添加失败，请重试'); }
+        }
+
+        // 删除场次（仅删除选项，不删除 DiceResult 里已投的点数数据）
+        async function deleteSession(id) {
+            if (!confirm('确定要删除这个汇报场次吗？（该场次已投出的点数不会丢失，但将不再显示在下拉列表中）')) return;
+            try {
+                const res = await fetch(`https://api.bmobcloud.com/1/classes/DiceSession/${id}`, {
+                    method: 'DELETE',
+                    headers: headers
+                });
+                if (res.ok) {
+                    alert('场次已删除！');
+                    await syncSessions();
+                    loadRankings();
+                }
+            } catch (e) { alert('删除失败'); }
+        }
+
+
+        // ==================== 🎲 摇骰子与排名逻辑 ====================
+
+        // 投掷骰子
         async function rollMyDice() {
             const name = document.getElementById('userName').value.trim();
-            const session = document.getElementById('sessionSelect').value;
-            const sessionName = document.getElementById('sessionSelect').selectedOptions[0].text;
+            const sessionID = document.getElementById('sessionSelect').value;
+            const sessionName = document.getElementById('sessionSelect').selectedOptions[0]?.text;
             const rollBtn = document.getElementById('rollBtn');
 
-            if (!name) {
-                alert('请输入名字后再摇骰子！');
-                return;
-            }
+            if (!sessionID) { alert('当前没有选中的汇报场次，无法摇号！'); return; }
+            if (!name) { alert('请输入名字后再摇骰子！'); return; }
 
             rollBtn.disabled = true;
             rollBtn.innerText = '正在记录结果...';
 
             try {
-                // 1. 严格防作弊：查询该场次下该名字是否已经存在
-                const where = encodeURIComponent(JSON.stringify({ "session": session, "name": name }));
+                // 防作弊：检查该场次下名字是否已存在
+                const where = encodeURIComponent(JSON.stringify({ "sessionID": sessionID, "name": name }));
                 const checkRes = await fetch(`https://api.bmobcloud.com/1/classes/DiceResult?where=${where}`, { headers });
                 const checkData = await checkRes.json();
 
                 if (checkData.results && checkData.results.length > 0) {
-                    alert(`【⚠️ 提示】${name}，你在【${sessionName}】中已经摇过骰子了，每人每场只能摇一次哦！`);
+                    alert(`【⚠️ 提示】${name}，你在【${sessionName}】中已经摇过骰子了！`);
                     return;
                 }
 
-                // 2. 生成 1-6 随机点数，并加入极小的随机权重防止排序完全等值冲突
+                // 生成 1-6 随机点数
                 const score = Math.floor(Math.random() * 6) + 1;
+                // 加上微小的权重防完全同分冲突。点数越小，finalScore 越小。
                 const finalScore = score + Math.random();
 
-                // 3. 将结果发送给 Bmob 数据库保存
+                // 写入数据库，关联当前的 sessionID
                 const saveRes = await fetch('https://api.bmobcloud.com/1/classes/DiceResult', {
                     method: 'POST',
                     headers: headers,
-                    body: JSON.stringify({ name, session, score, finalScore })
+                    body: JSON.stringify({ name, sessionID, score, finalScore })
                 });
 
                 if(saveRes.ok) {
                     alert(`🎲 摇号成功！你摇到了 ${score} 点！`);
-                    document.getElementById('userName').value = ''; // 摇完清空输入框
-                    loadRankings(); // 立即刷新
-                } else {
-                    alert('数据保存失败，请检查 Bmob 后台是否创建了 DiceResult 数据表。');
+                    document.getElementById('userName').value = '';
+                    loadRankings();
                 }
             } catch (e) {
                 alert('网络错误，请稍后重试！');
@@ -111,15 +213,20 @@
             }
         }
 
-        // 实时从云端拉取并根据分数高低排序
+        // 拉取当前场次的排名
         async function loadRankings() {
-            const session = document.getElementById('sessionSelect').value;
+            const sessionID = document.getElementById('sessionSelect').value;
             const leaderboard = document.getElementById('leaderboard');
 
+            if (!sessionID) {
+                leaderboard.innerHTML = '<p style="color:#999; text-align:center;">请先选择或创建一个汇报场次。</p>';
+                return;
+            }
+
             try {
-                const where = encodeURIComponent(JSON.stringify({ "session": session }));
-                // -finalScore 代表按照分数降序排列（点数大的在前面）
-                const res = await fetch(`https://api.bmobcloud.com/1/classes/DiceResult?where=${where}&order=-finalScore`, { headers });
+                const where = encodeURIComponent(JSON.stringify({ "sessionID": sessionID }));
+                // 【核心修改】把 order=-finalScore 改为 order=finalScore，变为升序排列（点数小的在前面）
+                const res = await fetch(`https://api.bmobcloud.com/1/classes/DiceResult?where=${where}&order=finalScore`, { headers });
                 const data = await res.json();
 
                 if (!data.results || data.results.length === 0) {
