@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>组会报告顺序抽签器</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; text-align: center; background-color: #f5f7fa; }
+        h1 { color: #333; }
+        textarea { width: 100%; height: 100px; padding: 10px; margin-bottom: 10px; border-radius: 4px; border: 1px solid #ccc; }
+        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        #result { margin-top: 20px; text-align: left; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .member-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .rank { font-weight: bold; color: #ff5722; }
+    </style>
+</head>
+<body>
+
+    <h1>🎲 组会报告顺序抽签</h1>
+    <p>请输入参与组会成员的名单（每行一个名字）：</p>
+    <textarea id="namesPlaceholder" placeholder="张三&#10;李四&#10;王五"></textarea>
+    <br>
+    <button onclick="rollDice()">🎲 开始摇骰子并排序</button>
+
+    <div id="result" style="display:none;">
+        <h3>📋 最终报告顺序：</h3>
+        <div id="orderList"></div>
+    </div>
+
+    <script>
+        function rollDice() {
+            const text = document.getElementById('namesPlaceholder').value.trim();
+            if (!text) {
+                alert('请先输入成员名单！');
+                return;
+            }
+            
+            // 解析名字并过滤空行
+            const members = text.split('\n').map(name => name.trim()).filter(name => name.length > 0);
+            
+            // 为每个人摇骰子（生成点数，若点数相同加入微小的随机数保证排序稳定性）
+            let rolledMembers = members.map(name => {
+                const score = Math.floor(Math.random() * 6) + 1; 
+                // 加上一个极其微小的随机数，防止完全同点数时无法决出先后
+                const internalScore = score + Math.random(); 
+                return { name, displayScore: score, internalScore };
+            });
+
+            // 按照点数从大到小排序
+            rolledMembers.sort((a, b) => b.internalScore - a.internalScore);
+
+            // 渲染结果
+            const orderList = document.getElementById('orderList');
+            orderList.innerHTML = '';
+            
+            rolledMembers.forEach((member, index) => {
+                orderList.innerHTML += `
+                    <div class="member-item">
+                        <span><span class="rank">第 ${index + 1} 棒:</span> ${member.name}</span>
+                        <span>🎲 ${member.displayScore} 点</span>
+                    </div>
+                `;
+            });
+
+            document.getElementById('result').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
