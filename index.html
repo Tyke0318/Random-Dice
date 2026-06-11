@@ -23,6 +23,17 @@
         .tag { background: #fff5f5; color: #c53030; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .admin-section { border-top: 1px dashed #cbd5e0; margin-top: 15px; padding-top: 15px; display: none; }
         .session-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dotted #e2e8f0; font-size: 14px; }
+        .schedule-panel { border-top: 1px dashed #cbd5e0; margin-top: 16px; padding-top: 16px; }
+        .schedule-actions { display: flex; gap: 8px; }
+        .schedule-actions button { margin: 0; }
+        .schedule-preview { margin-top: 12px; font-size: 14px; color: #4a5568; }
+        .schedule-item { display: grid; grid-template-columns: 100px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid #edf2f7; }
+        .schedule-date { color: #3182ce; font-weight: bold; }
+        .hint { color: #718096; font-size: 12px; line-height: 1.5; margin: 6px 0 0; text-align: center; }
+        @media (max-width: 420px) {
+            .schedule-actions { flex-direction: column; }
+            .schedule-item { grid-template-columns: 1fr; gap: 2px; }
+        }
     </style>
 </head>
 <body>
@@ -55,6 +66,18 @@
             <button onclick="loadRankings()" style="width:auto; padding:4px 10px; margin:0; font-size:12px; background:#3182ce;">手动刷新</button>
         </h3>
         <div id="leaderboard" class="rank-list">正在同步云端数据...</div>
+
+        <div class="schedule-panel">
+            <h3>汇报排期导出</h3>
+            <label for="firstReportDate">第一轮汇报日期：</label>
+            <input type="date" id="firstReportDate" onchange="renderSchedulePreview()" />
+            <div class="schedule-actions">
+                <button onclick="renderSchedulePreview()" style="background:#3182ce;">生成预览</button>
+                <button onclick="exportScheduleCsv()" style="background:#805ad5;">导出名单 CSV</button>
+            </div>
+            <p class="hint">按当前摇号排名顺序排期，每周 2 人汇报，下一轮自动顺延 7 天。</p>
+            <div id="schedulePreview" class="schedule-preview"></div>
+        </div>
     </div>
 
     <script>
@@ -68,6 +91,7 @@
             "X-Bmob-REST-API-Key": BMOB_REST_KEY,
             "Content-Type": "application/json"
         };
+        let currentRankings = [];
 
         window.onload = async function() {
             await syncSessions(); // 先加载场次下拉列表
@@ -78,6 +102,100 @@
         function toggleAdmin() {
             const panel = document.getElementById('adminPanel');
             panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function escapeHtml(text) {
+            return String(text ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getScheduleRows() {
+            const dateInput = document.getElementById('firstReportDate').value;
+            if (!dateInput || currentRankings.length === 0) return [];
+
+            const firstDate = new Date(`${dateInput}T00:00:00`);
+            return currentRankings.map((item, index) => {
+                const reportDate = new Date(firstDate);
+                reportDate.setDate(firstDate.getDate() + Math.floor(index / 2) * 7);
+                return {
+                    order: index + 1,
+                    name: item.name,
+                    score: item.score,
+                    reportDate: formatDate(reportDate)
+                };
+            });
+        }
+
+        function renderSchedulePreview() {
+            const preview = document.getElementById('schedulePreview');
+            const firstDate = document.getElementById('firstReportDate').value;
+
+            if (currentRankings.length === 0) {
+                preview.innerHTML = '<p class="hint">当前场次还没有摇号结果，暂时无法生成排期。</p>';
+                return;
+            }
+            if (!firstDate) {
+                preview.innerHTML = '<p class="hint">请选择第一轮汇报日期后生成预览。</p>';
+                return;
+            }
+
+            const rows = getScheduleRows();
+            let html = '';
+            for (let i = 0; i < rows.length; i += 2) {
+                const group = rows.slice(i, i + 2);
+                html += `
+                    <div class="schedule-item">
+                        <div class="schedule-date">${group[0].reportDate}</div>
+                        <div>${group.map(row => `第 ${row.order} 位：${escapeHtml(row.name)}`).join('　')}</div>
+                    </div>`;
+            }
+            preview.innerHTML = html;
+        }
+
+        function csvCell(value) {
+            return `"${String(value ?? '').replace(/"/g, '""')}"`;
+        }
+
+        function exportScheduleCsv() {
+            const rows = getScheduleRows();
+            const sessionName = document.getElementById('sessionSelect').selectedOptions[0]?.text || '汇报排期';
+
+            if (currentRankings.length === 0) {
+                alert('当前场次还没有摇号结果，无法导出。');
+                return;
+            }
+            if (rows.length === 0) {
+                alert('请先选择第一轮汇报日期。');
+                return;
+            }
+
+            const csvRows = [
+                ['汇报日期', '顺序', '姓名', '骰子点数'],
+                ...rows.map(row => [row.reportDate, row.order, row.name, row.score])
+            ];
+            const csvContent = '\ufeff' + csvRows.map(row => row.map(csvCell).join(',')).join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const safeSessionName = sessionName.replace(/[\\/:*?"<>|]/g, '_');
+
+            link.href = URL.createObjectURL(blob);
+            link.download = `${safeSessionName}_汇报排期.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
         }
 
         // ==================== 🛠️ 场次增删逻辑 ====================
@@ -219,7 +337,9 @@
             const leaderboard = document.getElementById('leaderboard');
 
             if (!sessionID) {
+                currentRankings = [];
                 leaderboard.innerHTML = '<p style="color:#999; text-align:center;">请先选择或创建一个汇报场次。</p>';
+                renderSchedulePreview();
                 return;
             }
 
@@ -230,19 +350,23 @@
                 const data = await res.json();
 
                 if (!data.results || data.results.length === 0) {
+                    currentRankings = [];
                     leaderboard.innerHTML = '<p style="color:#999; text-align:center;">🎉 本场汇报暂无同学摇号，快来占领第一棒！</p>';
+                    renderSchedulePreview();
                     return;
                 }
 
+                currentRankings = data.results;
                 let html = '';
                 data.results.forEach((item, index) => {
                     html += `
                         <div class="rank-item">
-                            <div><span class="rank-number">第 ${index + 1} 棒</span><strong>${item.name}</strong></div>
+                            <div><span class="rank-number">第 ${index + 1} 棒</span><strong>${escapeHtml(item.name)}</strong></div>
                             <span class="tag">🎲 ${item.score} 点</span>
                         </div>`;
                 });
                 leaderboard.innerHTML = html;
+                renderSchedulePreview();
             } catch (e) {
                 leaderboard.innerHTML = '<p style="color:#e53e3e; text-align:center;">⚠️ 数据加载失败，请刷新页面。</p>';
             }
