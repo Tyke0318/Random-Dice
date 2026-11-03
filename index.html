@@ -9,13 +9,13 @@
   <meta name="description" content="在线组会抽签与历史排班" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23173563'/%3E%3Cpath d='M20 18h24v28H20z' fill='%23f3b844'/%3E%3Cpath d='M27 24h10M27 31h10M27 38h6' stroke='%23173563' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="history.css?v=group-link-1" />
+  <link rel="stylesheet" href="history.css?v=round-share-1" />
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
       <a class="brand" href="#" aria-label="组会抽签主页"><span class="brand-mark">🎲</span><span>组会抽签</span></a>
-      <button id="copyGroup" class="text-btn hidden" type="button">复制群链接</button>
+      <div class="top-actions"><button id="refreshBtn" class="text-btn hidden" type="button">刷新</button><button id="shareBtn" class="outline hidden" type="button">分享本场</button></div>
     </header>
     <p id="status" class="shared-status" role="status">正在连接共享服务…</p>
     <p id="setupNote" class="shared-status hidden">请查看<a href="https://github.com/Tyke0318/Random-Dice#部署">部署步骤</a>。</p>
@@ -24,12 +24,12 @@
       <div class="intro">
         <p class="eyebrow">GROUP MEETING</p>
         <h1>公平排出每一次<br><em>组会分享</em></h1>
-        <p class="subtext">打开群里的链接，选自己的名字抽签。全员抽完后，组内任何人都可以生成每周两人的排班。</p>
+        <p class="subtext">新建场次，分享链接，收齐抽签后生成排班。</p>
       </div>
       <div>
         <section id="groupIntro" class="create-card">
           <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">组内入口</p><h2>从课题组群打开</h2></div></div>
-          <p class="person-sub">请打开群里分享的完整链接。无需账号和密码。</p>
+          <p class="person-sub">请打开本期场次链接。</p>
         </section>
         <form id="createForm" class="create-card hidden">
           <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">开始一场新的抽签</p><h2>新建汇报场次</h2></div></div>
@@ -37,18 +37,16 @@
           <input id="sessionName" maxlength="40" placeholder="例如：11 月组会汇报" required />
           <label for="sessionDate">第一周汇报日期</label>
           <input id="sessionDate" type="date" min="2000-01-01" max="2100-12-31" required />
-          <label for="roster">组员名单（每行一位）</label>
-          <textarea id="roster" rows="4" maxlength="2500" placeholder="同名组员请加区分标记" required></textarea>
           <button class="primary">创建场次 <span>→</span></button>
         </form>
       </div>
       <div class="how-it-works home-flow">
-        <span>选择自己的姓名</span><b>·</b><span>抽取顺序号</span><b>·</b><span>生成排班表</span>
+        <span>分享本场</span><b>·</b><span>填写姓名</span><b>·</b><span>生成排班表</span>
       </div>
     </section>
     <section id="historySection" class="history-section hidden" aria-labelledby="historyTitle">
       <div class="history-head"><div><p class="eyebrow">全部场次</p><h2 id="historyTitle">历次分享排班</h2></div><span id="historyCount" class="history-count"></span></div>
-      <div id="emptyHistory" class="history-empty">还没有创建场次。新建场次并完成抽签后，排班会显示在这里。</div>
+      <div id="emptyHistory" class="history-empty">暂无场次</div>
       <div id="historyList" class="history-list"></div>
     </section>
 
@@ -59,12 +57,11 @@
       </div>
       <div class="draw-grid">
         <section class="name-panel">
-          <p class="eyebrow">汇报顺序</p>
-          <h2>选择自己的姓名</h2>
-          <label class="sr-only" for="personName">姓名</label>
-          <select id="personName" class="group-select"></select>
-          <button id="rollBtn" class="primary roll" type="button" disabled>抽取我的顺序号 <span>🎲</span></button>
-          <div class="fair-note"><span>✦</span><p id="drawNote">每个姓名只能抽一次。换设备后，重新选择姓名即可查看已抽号码。</p></div>
+          <form id="drawForm">
+            <label for="personName">姓名</label>
+            <input id="personName" class="group-select" maxlength="24" placeholder="填写姓名" autocomplete="off" required />
+            <button id="rollBtn" class="primary roll" type="submit" disabled>抽签</button>
+          </form>
         </section>
         <section class="dice-panel" aria-live="polite">
           <p class="eyebrow">本次结果</p>
@@ -73,7 +70,7 @@
         </section>
       </div>
       <section class="participants">
-        <div class="section-title"><div><p class="eyebrow">抽签结果</p><h2>全员抽签进度</h2></div><button id="finishBtn" class="outline" disabled>结束抽签，生成排班 <span>→</span></button></div>
+        <div class="section-title"><div><p class="eyebrow">抽签结果</p><h2>排班进度</h2></div><button id="finishBtn" class="outline" disabled>归档排班</button></div>
         <button id="editBtn" type="button" class="text-btn">修改场次信息</button>
         <form id="editForm" class="create-card hidden">
           <label for="editName">场次名称</label>
@@ -82,6 +79,8 @@
           <input id="editDate" type="date" min="2000-01-01" max="2100-12-31" required />
           <button class="primary">保存修改</button>
         </form>
+        <p id="rankNote" class="person-sub hidden">点数小的排前，同点数按抽签先后。</p>
+        <p id="progressEmpty" class="person-sub">还没有人抽签</p>
         <ol id="peopleList" class="people-list"></ol>
       </section>
     </section>
@@ -90,8 +89,8 @@
       <div class="result-hero">
         <p class="eyebrow">抽签完成 · 排班已生成</p>
         <h1 id="scheduleTitle"></h1>
-        <p>按抽到的顺序号排班，每周两人。此排班已归档。</p>
-        <div class="result-actions"><button id="copyBtn" class="primary">复制排班表</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="newBtn" class="text-btn">返回主页</button></div>
+        <p>每周两人，按抽签顺序汇报。</p>
+        <div class="result-actions"><button id="csvBtn" class="primary">导出 CSV</button><button id="copyBtn" class="outline">复制排班</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="newBtn" class="text-btn">返回主页</button></div>
       </div>
       <section class="schedule-card">
         <div class="schedule-card-head"><div><p class="eyebrow">分享汇报排班表</p><h2 id="scheduleName"></h2></div><span id="startDateBadge"></span></div>
@@ -102,6 +101,6 @@
   </main>
   <div id="toast" class="toast" role="status"></div>
   <script src="config.js" defer></script>
-  <script src="app.js?v=group-link-1" defer></script>
+  <script src="app.js?v=round-share-1" defer></script>
 </body>
 </html>

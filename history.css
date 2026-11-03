@@ -8,3 +8,7 @@
 .group-select{display:block;width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
 .person-row .person-name,.history-card h3,.draw-head h1{overflow-wrap:anywhere}
 @media print{.shared-status{display:none!important}}
+
+.top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#drawForm label{font-weight:800}
+#drawForm input{min-width:0}
