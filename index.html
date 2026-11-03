@@ -1,401 +1,104 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inlab 组会分享顺序抽签</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; text-align: center; background-color: #f4f6f9; color: #333; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; text-align: left; }
-        h2, h3 { color: #2c3e50; margin-top: 0; text-align: center; }
-        label { display: block; margin-top: 10px; font-size: 14px; color: #666; }
-        select, input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
-        button { background-color: #4caf50; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background-color: #45a049; }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        .btn-admin { background-color: #718096; font-size: 14px; padding: 8px; }
-        .btn-admin:hover { background-color: #4a5568; }
-        .btn-danger { background-color: #e53e3e; font-size: 12px; width: auto; padding: 4px 8px; margin: 0; }
-        .btn-danger:hover { background-color: #c53030; }
-        .rank-list { text-align: left; margin-top: 15px; }
-        .rank-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #edf2f7; align-items: center; }
-        .rank-number { font-weight: bold; color: #3182ce; margin-right: 10px; }
-        .tag { background: #fff5f5; color: #c53030; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-        .admin-section { border-top: 1px dashed #cbd5e0; margin-top: 15px; padding-top: 15px; display: none; }
-        .session-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dotted #e2e8f0; font-size: 14px; }
-        .schedule-panel { border-top: 1px dashed #cbd5e0; margin-top: 16px; padding-top: 16px; }
-        .schedule-actions { display: flex; gap: 8px; }
-        .schedule-actions button { margin: 0; }
-        .schedule-preview { margin-top: 12px; font-size: 14px; color: #4a5568; }
-        .schedule-item { display: grid; grid-template-columns: 100px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid #edf2f7; }
-        .schedule-date { color: #3182ce; font-weight: bold; }
-        .hint { color: #718096; font-size: 12px; line-height: 1.5; margin: 6px 0 0; text-align: center; }
-        @media (max-width: 420px) {
-            .schedule-actions { flex-direction: column; }
-            .schedule-item { grid-template-columns: 1fr; gap: 2px; }
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:; connect-src https://*.supabase.co; base-uri 'none'; form-action 'none'" />
+  <meta name="referrer" content="no-referrer" />
+  <title>组会抽签 · 汇报排班</title>
+  <meta name="description" content="在线组会抽签与历史排班" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23173563'/%3E%3Cpath d='M20 18h24v28H20z' fill='%23f3b844'/%3E%3Cpath d='M27 24h10M27 31h10M27 38h6' stroke='%23173563' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="history.css" />
 </head>
 <body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="组会抽签主页"><span class="brand-mark">🎲</span><span>组会抽签</span></a>
+      <button id="signOut" class="text-btn hidden" type="button">管理员退出</button>
+    </header>
+    <p id="status" class="shared-status" role="status">正在连接共享服务…</p>
+    <p id="setupNote" class="shared-status hidden">管理员可查看<a href="https://github.com/Tyke0318/Random-Dice#首次接通共享后端">部署步骤</a>。</p>
 
-    <div class="card">
-        <h2>🎲 组会报告顺序抽签</h2>
+    <section id="homeView" class="home-view">
+      <div class="intro">
+        <p class="eyebrow">GROUP MEETING</p>
+        <h1>公平排出每一次<br><em>组会分享</em></h1>
+        <p class="subtext">组员打开自己的链接，抽取一个唯一的汇报顺序号。全员抽完后，由管理员生成每周两人的排班，组内可随时查看。</p>
+      </div>
+      <div>
+        <form id="loginForm" class="create-card hidden">
+          <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">管理入口</p><h2>管理员登录</h2></div></div>
+          <label for="email">邮箱</label>
+          <input id="email" type="email" autocomplete="username" required />
+          <label for="password">密码</label>
+          <input id="password" type="password" autocomplete="current-password" required />
+          <button class="primary">登录 <span>→</span></button>
+          <p class="person-sub">组员请使用管理员发来的个人抽签链接或组内查看链接。</p>
+        </form>
+        <form id="createForm" class="create-card hidden">
+          <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">开始一场新的抽签</p><h2>新建汇报场次</h2></div></div>
+          <label for="sessionName">场次名称</label>
+          <input id="sessionName" maxlength="40" placeholder="例如：11 月组会汇报" required />
+          <label for="sessionDate">第一周汇报日期</label>
+          <input id="sessionDate" type="date" min="2000-01-01" max="2100-12-31" required />
+          <label for="roster">组员名单（每行一位）</label>
+          <textarea id="roster" rows="4" maxlength="2500" placeholder="同名组员请加区分标记" required></textarea>
+          <button class="primary">创建场次 <span>→</span></button>
+          <button id="copyGroup" type="button" class="text-btn">复制组内查看链接</button>
+        </form>
+      </div>
+      <div class="how-it-works home-flow">
+        <span>打开专属链接</span><b>·</b><span>抽取顺序号</span><b>·</b><span>生成排班表</span>
+      </div>
+    </section>
+    <section id="historySection" class="history-section hidden" aria-labelledby="historyTitle">
+      <div class="history-head"><div><p class="eyebrow">全部场次</p><h2 id="historyTitle">历次分享排班</h2></div><span id="historyCount" class="history-count"></span></div>
+      <div id="emptyHistory" class="history-empty">还没有创建场次。新建场次并完成抽签后，排班会显示在这里。</div>
+      <div id="historyList" class="history-list"></div>
+    </section>
 
-        <label for="sessionSelect">选择汇报场次：</label>
-        <select id="sessionSelect" onchange="loadRankings()">
-            <option value="">正在加载场次列表...</option>
-        </select>
+    <section id="drawView" class="draw-view hidden">
+      <div class="draw-head">
+        <div><button id="backHome" class="text-btn">‹ 返回主页</button><p class="eyebrow">当前场次</p><h1 id="drawTitle"></h1></div>
+        <div class="draw-count"><strong id="personCount">0</strong><span>位已抽签</span></div>
+      </div>
+      <div class="draw-grid">
+        <section class="name-panel">
+          <p class="eyebrow">汇报顺序</p>
+          <h2 id="memberTitle">组内抽签进度</h2>
+          <button id="rollBtn" class="primary roll hidden" type="button">抽取我的顺序号 <span>🎲</span></button>
+          <div class="fair-note"><span>✦</span><p id="drawNote">各组员使用自己的链接抽取。结果由服务器保存，同一个链接换设备打开也能找回原顺序号。</p></div>
+        </section>
+        <section class="dice-panel" aria-live="polite">
+          <p class="eyebrow">本次结果</p>
+          <div id="diceBox" class="dice-box idle"><span id="diceValue">?</span></div>
+          <p id="diceCaption">等待抽签</p>
+        </section>
+      </div>
+      <section class="participants">
+        <div class="section-title"><div><p class="eyebrow">抽签结果</p><h2>全员抽签进度</h2></div><button id="finishBtn" class="outline hidden" disabled>结束抽签，生成排班 <span>→</span></button></div>
+        <p id="inviteNote" class="person-sub hidden">请将专属链接分别私发给对应组员。组内进度和历史可用主页上的只读链接分享。</p>
+        <ol id="peopleList" class="people-list"></ol>
+      </section>
+    </section>
 
-        <input type="text" id="userName" placeholder="请输入你的真实姓名" required />
-        <button id="rollBtn" onclick="rollMyDice()">投掷我的骰子 🎲</button>
-
-        <button class="btn-admin" onclick="toggleAdmin()">增加汇报场次</button>
-
-        <div id="adminPanel" class="admin-section">
-            <h3>管理汇报场次</h3>
-            <input type="text" id="newSessionName" placeholder="输入新场次名称 (如: 2026年9月汇报)" />
-            <button onclick="addSession()" style="background-color: #3182ce;">添加此场次</button>
-            <label>当前已有场次（删除场次不会删除对应已投的点数）：</label>
-            <div id="adminSessionList"></div>
-        </div>
-    </div>
-
-    <div class="card">
-        <h3 style="display:flex; justify-content:space-between; align-items:center; margin:0;">
-            <span>📋 出场顺序排名 (点数小优先)</span>
-            <button onclick="loadRankings()" style="width:auto; padding:4px 10px; margin:0; font-size:12px; background:#3182ce;">手动刷新</button>
-        </h3>
-        <div id="leaderboard" class="rank-list">正在同步云端数据...</div>
-
-        <div class="schedule-panel">
-            <h3>汇报排期导出</h3>
-            <label for="firstReportDate">第一轮汇报日期：</label>
-            <input type="date" id="firstReportDate" onchange="renderSchedulePreview()" />
-            <div class="schedule-actions">
-                <button onclick="renderSchedulePreview()" style="background:#3182ce;">生成预览</button>
-                <button onclick="exportScheduleCsv()" style="background:#805ad5;">导出名单 CSV</button>
-            </div>
-            <p class="hint">按当前摇号排名顺序排期，每周 2 人汇报，下一轮自动顺延 7 天。</p>
-            <div id="schedulePreview" class="schedule-preview"></div>
-        </div>
-    </div>
-
-    <script>
-        // ==================== 🔑 密钥配置区 ====================
-        const BMOB_APP_ID = '7b7193db1ca0ae02b020f4390bbc9310';
-        const BMOB_REST_KEY = 'f09a38c4488e3f142c385260da42437d';
-        // =====================================================
-
-        const headers = {
-            "X-Bmob-Application-Id": BMOB_APP_ID,
-            "X-Bmob-REST-API-Key": BMOB_REST_KEY,
-            "Content-Type": "application/json"
-        };
-        let currentRankings = [];
-
-        window.onload = async function() {
-            await syncSessions(); // 先加载场次下拉列表
-            loadRankings();       // 再加载当前场次的排名
-            setInterval(loadRankings, 5000); // 每5秒自动同步一次排名
-        };
-
-        function toggleAdmin() {
-            const panel = document.getElementById('adminPanel');
-            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function escapeHtml(text) {
-            return String(text ?? '').replace(/[&<>"']/g, char => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;'
-            }[char]));
-        }
-
-        function formatDate(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-
-        function getRandomUint32() {
-            if (window.crypto && window.crypto.getRandomValues) {
-                const values = new Uint32Array(1);
-                window.crypto.getRandomValues(values);
-                return values[0];
-            }
-            return Math.floor(Math.random() * 0x100000000);
-        }
-
-        function randomIntInclusive(min, max) {
-            const range = max - min + 1;
-            const maxValid = Math.floor(0x100000000 / range) * range - 1;
-            let value;
-
-            do {
-                value = getRandomUint32();
-            } while (value > maxValid);
-
-            return min + (value % range);
-        }
-
-        function randomFloat() {
-            return getRandomUint32() / 0x100000000;
-        }
-
-        function getScheduleRows() {
-            const dateInput = document.getElementById('firstReportDate').value;
-            if (!dateInput || currentRankings.length === 0) return [];
-
-            const firstDate = new Date(`${dateInput}T00:00:00`);
-            return currentRankings.map((item, index) => {
-                const reportDate = new Date(firstDate);
-                reportDate.setDate(firstDate.getDate() + Math.floor(index / 2) * 7);
-                return {
-                    order: index + 1,
-                    name: item.name,
-                    score: item.score,
-                    reportDate: formatDate(reportDate)
-                };
-            });
-        }
-
-        function renderSchedulePreview() {
-            const preview = document.getElementById('schedulePreview');
-            const firstDate = document.getElementById('firstReportDate').value;
-
-            if (currentRankings.length === 0) {
-                preview.innerHTML = '<p class="hint">当前场次还没有摇号结果，暂时无法生成排期。</p>';
-                return;
-            }
-            if (!firstDate) {
-                preview.innerHTML = '<p class="hint">请选择第一轮汇报日期后生成预览。</p>';
-                return;
-            }
-
-            const rows = getScheduleRows();
-            let html = '';
-            for (let i = 0; i < rows.length; i += 2) {
-                const group = rows.slice(i, i + 2);
-                html += `
-                    <div class="schedule-item">
-                        <div class="schedule-date">${group[0].reportDate}</div>
-                        <div>${group.map(row => `第 ${row.order} 位：${escapeHtml(row.name)}`).join('　')}</div>
-                    </div>`;
-            }
-            preview.innerHTML = html;
-        }
-
-        function csvCell(value) {
-            return `"${String(value ?? '').replace(/"/g, '""')}"`;
-        }
-
-        function exportScheduleCsv() {
-            const rows = getScheduleRows();
-            const sessionName = document.getElementById('sessionSelect').selectedOptions[0]?.text || '汇报排期';
-
-            if (currentRankings.length === 0) {
-                alert('当前场次还没有摇号结果，无法导出。');
-                return;
-            }
-            if (rows.length === 0) {
-                alert('请先选择第一轮汇报日期。');
-                return;
-            }
-
-            const csvRows = [
-                ['汇报日期', '顺序', '姓名', '骰子点数'],
-                ...rows.map(row => [row.reportDate, row.order, row.name, row.score])
-            ];
-            const csvContent = '\ufeff' + csvRows.map(row => row.map(csvCell).join(',')).join('\r\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const safeSessionName = sessionName.replace(/[\\/:*?"<>|]/g, '_');
-
-            link.href = URL.createObjectURL(blob);
-            link.download = `${safeSessionName}_汇报排期.csv`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
-        }
-
-        // ==================== 🛠️ 场次增删逻辑 ====================
-
-        // 从云端获取所有场次并刷新下拉框和管理列表
-        async function syncSessions() {
-            try {
-                const res = await fetch('https://api.bmobcloud.com/1/classes/DiceSession?order=-createdAt', { headers });
-                const data = await res.json();
-
-                const select = document.getElementById('sessionSelect');
-                const adminList = document.getElementById('adminSessionList');
-
-                // 保存当前选中的值，避免刷新时被重置
-                const currentSelected = select.value;
-
-                if (!data.results || data.results.length === 0) {
-                    select.innerHTML = '<option value="">暂无可用场次，请先添加</option>';
-                    adminList.innerHTML = '<p style="color:#999;font-size:12px;">暂无场次</p>';
-                    return;
-                }
-
-                let selectHtml = '';
-                let adminHtml = '';
-
-                data.results.forEach(item => {
-                    selectHtml += `<option value="${item.objectId}">${item.sessionName}</option>`;
-                    adminHtml += `
-                        <div class="session-item">
-                            <span>${item.sessionName}</span>
-                            <button class="btn-danger" onclick="deleteSession('${item.objectId}')">删除</button>
-                        </div>`;
-                });
-
-                select.innerHTML = selectHtml;
-                adminList.innerHTML = adminHtml;
-
-                // 恢复之前的选择
-                if (currentSelected && select.querySelector(`option[value="${currentSelected}"]`)) {
-                    select.value = currentSelected;
-                }
-            } catch (e) {
-                console.error("同步场次失败", e);
-            }
-        }
-
-        // 添加新场次
-        async function addSession() {
-            const input = document.getElementById('newSessionName');
-            const name = input.value.trim();
-            if (!name) { alert('请输入场次名称！'); return; }
-
-            try {
-                const res = await fetch('https://api.bmobcloud.com/1/classes/DiceSession', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ sessionName: name })
-                });
-                if (res.ok) {
-                    input.value = '';
-                    alert('场次添加成功！');
-                    await syncSessions();
-                    loadRankings(); // 切换到新生成的表
-                }
-            } catch (e) { alert('添加失败，请重试'); }
-        }
-
-        // 删除场次（仅删除选项，不删除 DiceResult 里已投的点数数据）
-        async function deleteSession(id) {
-            if (!confirm('确定要删除这个汇报场次吗？（该场次已投出的点数不会丢失，但将不再显示在下拉列表中）')) return;
-            try {
-                const res = await fetch(`https://api.bmobcloud.com/1/classes/DiceSession/${id}`, {
-                    method: 'DELETE',
-                    headers: headers
-                });
-                if (res.ok) {
-                    alert('场次已删除！');
-                    await syncSessions();
-                    loadRankings();
-                }
-            } catch (e) { alert('删除失败'); }
-        }
-
-
-        // ==================== 🎲 摇骰子与排名逻辑 ====================
-
-        // 投掷骰子
-        async function rollMyDice() {
-            const name = document.getElementById('userName').value.trim();
-            const sessionID = document.getElementById('sessionSelect').value;
-            const sessionName = document.getElementById('sessionSelect').selectedOptions[0]?.text;
-            const rollBtn = document.getElementById('rollBtn');
-
-            if (!sessionID) { alert('当前没有选中的汇报场次，无法摇号！'); return; }
-            if (!name) { alert('请输入名字后再摇骰子！'); return; }
-
-            rollBtn.disabled = true;
-            rollBtn.innerText = '正在记录结果...';
-
-            try {
-                // 防作弊：检查该场次下名字是否已存在
-                const where = encodeURIComponent(JSON.stringify({ "sessionID": sessionID, "name": name }));
-                const checkRes = await fetch(`https://api.bmobcloud.com/1/classes/DiceResult?where=${where}`, { headers });
-                const checkData = await checkRes.json();
-
-                if (checkData.results && checkData.results.length > 0) {
-                    alert(`【⚠️ 提示】${name}，你在【${sessionName}】中已经摇过骰子了！`);
-                    return;
-                }
-
-                // 使用浏览器加密随机源生成 1-6 的无偏随机点数。
-                const score = randomIntInclusive(1, 6);
-                // 加上微小随机权重防完全同分冲突。点数越小，finalScore 越小。
-                const finalScore = score + randomFloat();
-
-                // 写入数据库，关联当前的 sessionID
-                const saveRes = await fetch('https://api.bmobcloud.com/1/classes/DiceResult', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify({ name, sessionID, score, finalScore })
-                });
-
-                if(saveRes.ok) {
-                    alert(`🎲 摇号成功！你摇到了 ${score} 点！`);
-                    document.getElementById('userName').value = '';
-                    loadRankings();
-                }
-            } catch (e) {
-                alert('网络错误，请稍后重试！');
-            } finally {
-                rollBtn.disabled = false;
-                rollBtn.innerText = '投掷我的骰子 🎲';
-            }
-        }
-
-        // 拉取当前场次的排名
-        async function loadRankings() {
-            const sessionID = document.getElementById('sessionSelect').value;
-            const leaderboard = document.getElementById('leaderboard');
-
-            if (!sessionID) {
-                currentRankings = [];
-                leaderboard.innerHTML = '<p style="color:#999; text-align:center;">请先选择或创建一个汇报场次。</p>';
-                renderSchedulePreview();
-                return;
-            }
-
-            try {
-                const where = encodeURIComponent(JSON.stringify({ "sessionID": sessionID }));
-                // 【核心修改】把 order=-finalScore 改为 order=finalScore，变为升序排列（点数小的在前面）
-                const res = await fetch(`https://api.bmobcloud.com/1/classes/DiceResult?where=${where}&order=finalScore`, { headers });
-                const data = await res.json();
-
-                if (!data.results || data.results.length === 0) {
-                    currentRankings = [];
-                    leaderboard.innerHTML = '<p style="color:#999; text-align:center;">🎉 本场汇报暂无同学摇号，快来占领第一棒！</p>';
-                    renderSchedulePreview();
-                    return;
-                }
-
-                currentRankings = data.results;
-                let html = '';
-                data.results.forEach((item, index) => {
-                    html += `
-                        <div class="rank-item">
-                            <div><span class="rank-number">第 ${index + 1} 棒</span><strong>${escapeHtml(item.name)}</strong></div>
-                            <span class="tag">🎲 ${item.score} 点</span>
-                        </div>`;
-                });
-                leaderboard.innerHTML = html;
-                renderSchedulePreview();
-            } catch (e) {
-                leaderboard.innerHTML = '<p style="color:#e53e3e; text-align:center;">⚠️ 数据加载失败，请刷新页面。</p>';
-            }
-        }
-    </script>
+    <section id="scheduleView" class="schedule-view hidden">
+      <div class="result-hero">
+        <p class="eyebrow">抽签完成 · 排班已生成</p>
+        <h1 id="scheduleTitle"></h1>
+        <p>按抽到的顺序号排班，每周两人。此排班已归档。</p>
+        <div class="result-actions"><button id="copyBtn" class="primary">复制排班表</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="newBtn" class="text-btn">返回主页</button></div>
+      </div>
+      <section class="schedule-card">
+        <div class="schedule-card-head"><div><p class="eyebrow">分享汇报排班表</p><h2 id="scheduleName"></h2></div><span id="startDateBadge"></span></div>
+        <div class="schedule-meta"><span>从 <strong id="startDate"></strong> 起，每周两人分享</span><span id="scheduleCount"></span></div>
+        <div id="scheduleRows" class="schedule-rows"></div>
+      </section>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

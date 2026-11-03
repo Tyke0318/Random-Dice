@@ -1,0 +1,10 @@
+.home-view{min-height:520px}.home-flow{position:static;margin-top:-44px}.history-section{padding:30px 0 0;border-top:1px solid var(--line)}.history-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:18px}.history-head h2{font-size:28px;letter-spacing:-.05em;margin:5px 0 0}.history-count{color:#6074a2;font-size:13px;font-weight:700}.history-empty{border:1px dashed #c9d6e7;border-radius:14px;padding:20px;color:var(--muted);font-size:14px;background:#ffffff88}.history-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.history-card{background:white;border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(34,69,126,.05)}.history-card-top{display:flex;gap:10px;justify-content:space-between}.history-card h3{font-size:18px;letter-spacing:-.03em;margin:5px 0 14px}.history-date{font-size:13px;color:var(--muted);margin:0 0 16px}.history-speakers{display:flex;gap:6px;flex-wrap:wrap;min-height:32px}.history-speaker{background:#edf4ff;border-radius:7px;padding:6px 8px;font-size:12px;font-weight:700}.history-actions{display:flex;gap:13px;margin-top:19px;padding-top:14px;border-top:1px solid #eef1f6}.history-actions button{font:inherit;font-size:13px;font-weight:800;border:0;background:none;padding:0;cursor:pointer;color:var(--blue)}.history-actions .delete-session{color:#b0484e}@media(max-width:760px){.home-flow{margin-top:30px}.history-list{grid-template-columns:1fr}}
+
+.shared-status{margin:20px 0 0;color:var(--muted);font-size:14px;overflow-wrap:anywhere}
+.shared-status[data-error="true"]{color:var(--red)}
+.shared-status:empty{display:none}
+.create-card textarea{display:block;width:100%;font:inherit;resize:vertical;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);margin-bottom:16px}
+.create-card .text-btn{margin-top:12px}
+.person-row .invite-copy{border:0;background:none;color:var(--blue);font:inherit;cursor:pointer;padding:4px 0;text-align:left}
+.person-row .person-name,.history-card h3,.draw-head h1{overflow-wrap:anywhere}
+@media print{.shared-status{display:none!important}}
