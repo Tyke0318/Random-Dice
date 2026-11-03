@@ -20,18 +20,13 @@
     <p id="status" class="shared-status" role="status">正在连接共享服务…</p>
     <p id="setupNote" class="shared-status hidden">请查看<a href="https://github.com/Tyke0318/Random-Dice#部署">部署步骤</a>。</p>
 
-    <section id="homeView" class="home-view">
+    <section id="homeView" class="home-view hidden">
       <div class="intro">
         <p class="eyebrow">GROUP MEETING</p>
         <h1>组会分享抽签</h1>
         <p class="subtext">新建场次，分享链接，收齐抽签后生成排班。</p>
       </div>
       <div>
-        <section id="groupIntro" class="create-card">
-          <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">组内入口</p><h2>从课题组群打开</h2></div></div>
-          <p class="person-sub">参与者打开本期链接。负责人用管理入口查看和归档。</p>
-          <button id="resumeRound" type="button" class="outline hidden">返回本场</button>
-        </section>
         <form id="createForm" class="create-card hidden">
           <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">开始一场新的抽签</p><h2>新建汇报场次</h2></div></div>
           <label for="sessionName">场次名称</label>
@@ -53,7 +48,7 @@
 
     <section id="drawView" class="draw-view hidden">
       <div class="draw-head">
-        <div><button id="backHome" class="text-btn">‹ 返回主页</button><p class="eyebrow">当前场次</p><h1 id="drawTitle"></h1></div>
+        <div><button id="backHome" class="text-btn">‹ 场次列表</button><p class="eyebrow">当前场次</p><h1 id="drawTitle"></h1></div>
         <div class="draw-count"><strong id="personCount">0</strong><span>位已抽签</span></div>
       </div>
       <p id="closedNotice" class="person-sub hidden">抽签已结束，排班尚未归档。</p>
@@ -92,7 +87,7 @@
         <p class="eyebrow">抽签完成 · 排班已生成</p>
         <h1 id="scheduleTitle"></h1>
         <p>每周两人，按抽签顺序汇报。</p>
-        <div class="result-actions"><button id="csvBtn" class="primary">导出 CSV</button><button id="copyBtn" class="outline">复制排班</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="deleteScheduleBtn" class="outline hidden" type="button">删除排班</button><button id="newBtn" class="text-btn">返回主页</button></div>
+        <div class="result-actions"><button id="csvBtn" class="primary">导出 CSV</button><button id="copyBtn" class="outline">复制排班</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="deleteScheduleBtn" class="outline hidden" type="button">删除排班</button><button id="newBtn" class="text-btn">场次列表</button></div>
       </div>
       <section class="schedule-card">
         <div class="schedule-card-head"><div><p class="eyebrow">分享汇报排班表</p><h2 id="scheduleName"></h2></div><span id="startDateBadge"></span></div>
@@ -103,6 +98,6 @@
   </main>
   <div id="toast" class="toast" role="status"></div>
   <script src="config.js" defer></script>
-  <script src="app.js?v=schedule-delete-1" defer></script>
+  <script src="app.js?v=unified-round-1" defer></script>
 </body>
 </html>

@@ -11,8 +11,19 @@
   let overview = null;
   let round = null;
   let shareKey = null;
-  let lastShare = null;
   const managementStorage = 'random-dice.management-group';
+  const roundStorage = 'random-dice.last-round';
+  function savedKey(key) {
+    try {
+      const value = localStorage.getItem(key);
+      return uuid.test(value ?? '') ? value : null;
+    } catch {
+      return null;
+    }
+  }
+  function remember(key, value) {
+    try { localStorage.setItem(key, value); } catch {}
+  }
   let busy = false;
   let polling = false;
   let revision = 0;
@@ -103,16 +114,11 @@
   }
 
   function returnHome() {
-    let group = new URLSearchParams(location.hash.slice(1)).get('group');
-    if (!group) {
-      try { group = localStorage.getItem(managementStorage); } catch {}
-    }
-    navigate(uuid.test(group ?? '') ? {group} : {});
+    const group = route().group || savedKey(managementStorage);
+    if (group) navigate({group});
   }
 
   function renderHome() {
-    visible('groupIntro', !overview);
-    visible('resumeRound', !overview && !!lastShare);
     visible('createForm', !!overview);
     visible('shareBtn', false);
     visible('refreshBtn', !!overview);
@@ -157,13 +163,16 @@
   }
 
   function renderRoundControls() {
-    const manager = !!route().group;
-    visible('shareBtn', manager && !!shareKey);
+    const current = route();
+    const canList = !!(current.group || savedKey(managementStorage));
+    visible('shareBtn', !!shareKey);
     visible('refreshBtn', true);
-    visible('editBtn', manager && !round.finished_at);
+    visible('backHome', canList);
+    visible('newBtn', canList);
+    visible('editBtn', !round.finished_at);
     if (round.finished_at) visible('editForm', false);
-    visible('deleteScheduleBtn', manager && !!round.schedule);
-    visible('finishBtn', manager);
+    visible('deleteScheduleBtn', !!round.schedule);
+    visible('finishBtn', true);
   }
 
   function renderDraw() {
@@ -222,17 +231,25 @@
         visible('editForm', false);
         $('personName').value = '';
         visible('createForm', false);
-        show('homeView');
+        show(null);
         status('正在加载…');
       }
       const current = route();
+      if (!current.group && !current.share) {
+        const share = savedKey(roundStorage);
+        const group = savedKey(managementStorage);
+        if (share) navigate({share});
+        else if (group) navigate({group});
+        else status('请打开完整的场次链接。');
+        return;
+      }
       if (current.round || current.share) {
         const [data, key] = await Promise.all([
           rpc('round', current.share ? {} : {p_round: current.round}),
-          current.group && !shareKey ? rpc('share', {p_round: current.round}) : shareKey,
+          current.share || (shareKey ?? rpc('share', {p_round: current.round})),
         ]);
         if (version !== revision) return;
-        if (current.share) lastShare = current.share;
+        if (key) remember(roundStorage, key);
         if (JSON.stringify(round) !== JSON.stringify(data) || shareKey !== key) {
           shareKey = key;
           round = data;
@@ -247,16 +264,11 @@
           renderHome();
         }
       }
-      if (current.group && !quiet) {
-        try { localStorage.setItem(managementStorage, current.group); } catch {}
-      }
+      if (current.group && !quiet) remember(managementStorage, current.group);
       status();
     } catch (error) {
       if (version !== revision) return;
       status(error.message, true);
-      if (!quiet) {
-        renderHome();
-      }
     }
   }
 
@@ -331,13 +343,14 @@
   $('editForm').addEventListener('submit', event => {
     event.preventDefault();
     action(event.submitter, async () => {
+      const from = location.hash;
       const current = route();
       await rpc('edit', {
-        p_round: current.round,
+        ...(current.share ? {} : {p_round: current.round}),
         p_name: $('editName').value.trim(),
         p_start: $('editDate').value,
       });
-      if (route().round === current.round && route().group === current.group) {
+      if (location.hash === from) {
         visible('editForm', false);
         await load(true);
       }
@@ -345,17 +358,19 @@
   });
 
   $('finishBtn').addEventListener('click', () => action($('finishBtn'), async () => {
+    const from = location.hash;
     const current = route();
     if (!round.finished_at && !window.confirm('结束抽签并归档当前排班？')) return;
-    await rpc('finish', {p_round: current.round});
-    if (route().round === current.round) await load(true);
+    await rpc('finish', current.share ? {} : {p_round: current.round});
+    if (location.hash === from) await load(true);
   }));
 
   $('deleteScheduleBtn').addEventListener('click', () => action($('deleteScheduleBtn'), async () => {
-    if (!round?.schedule || !route().group) return;
+    if (!round?.schedule) return;
     if (!window.confirm('删除已归档的排班？抽签结果会保留，场次仍保持结束。')) return;
     const from = location.hash;
-    await rpc('delete_schedule', {p_round: route().round});
+    const current = route();
+    await rpc('delete_schedule', current.share ? {} : {p_round: current.round});
     if (location.hash === from) await load(true);
   }));
 
@@ -392,9 +407,6 @@
   $('printBtn').addEventListener('click', () => window.print());
   $('backHome').addEventListener('click', returnHome);
   $('newBtn').addEventListener('click', returnHome);
-  $('resumeRound').addEventListener('click', () => {
-    if (lastShare) navigate({share: lastShare});
-  });
   document.querySelector('.brand').addEventListener('click', event => {
     event.preventDefault();
     returnHome();
