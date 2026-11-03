@@ -41,7 +41,7 @@
 
   function show(view) {
     views.forEach(id => visible(id, id === view));
-    visible('historySection', view === 'homeView' && !!overview);
+    visible('historySection', view === 'homeView');
   }
 
   function route() {
@@ -115,7 +115,7 @@
 
   function returnHome() {
     const group = route().group || savedKey(managementStorage);
-    if (group) navigate({group});
+    navigate(group ? {group} : {});
   }
 
   function renderHome() {
@@ -124,8 +124,11 @@
     visible('refreshBtn', !!overview);
     if (!$('sessionDate').value) $('sessionDate').value = nextMonday();
     const records = overview?.rounds || [];
+    const recent = !overview && !!savedKey(roundStorage);
+    visible('recentRound', recent);
+    $('historyTitle').textContent = overview ? '历次分享排班' : '最近场次';
     $('historyCount').textContent = records.length ? `共 ${records.length} 场` : '';
-    visible('emptyHistory', records.length === 0);
+    visible('emptyHistory', records.length === 0 && !recent);
     $('historyList').innerHTML = records.map(item => `
       <article class="history-card">
         <div class="history-card-top">
@@ -163,12 +166,10 @@
   }
 
   function renderRoundControls() {
-    const current = route();
-    const canList = !!(current.group || savedKey(managementStorage));
     visible('shareBtn', !!shareKey);
     visible('refreshBtn', true);
-    visible('backHome', canList);
-    visible('newBtn', canList);
+    visible('backHome', true);
+    visible('newBtn', true);
     visible('editBtn', !round.finished_at);
     if (round.finished_at) visible('editForm', false);
     visible('deleteScheduleBtn', !!round.schedule);
@@ -236,11 +237,12 @@
       }
       const current = route();
       if (!current.group && !current.share) {
-        const share = savedKey(roundStorage);
         const group = savedKey(managementStorage);
-        if (share) navigate({share});
-        else if (group) navigate({group});
-        else status('请打开完整的场次链接。');
+        if (group) navigate({group});
+        else {
+          renderHome();
+          status();
+        }
         return;
       }
       if (current.round || current.share) {
@@ -405,6 +407,10 @@
     copy([round.name + '｜分享汇报排班表', ...lines].join('\n'), '排班表已复制');
   });
   $('printBtn').addEventListener('click', () => window.print());
+  $('recentRound').addEventListener('click', () => {
+    const share = savedKey(roundStorage);
+    if (share) navigate({share});
+  });
   $('backHome').addEventListener('click', returnHome);
   $('newBtn').addEventListener('click', returnHome);
   document.querySelector('.brand').addEventListener('click', event => {

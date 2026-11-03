@@ -24,7 +24,7 @@
       <div class="intro">
         <p class="eyebrow">GROUP MEETING</p>
         <h1>组会分享抽签</h1>
-        <p class="subtext">新建场次，分享链接，收齐抽签后生成排班。</p>
+        <p class="subtext">查看场次、抽签和排班。</p>
       </div>
       <div>
         <form id="createForm" class="create-card hidden">
@@ -43,12 +43,13 @@
     <section id="historySection" class="history-section hidden" aria-labelledby="historyTitle">
       <div class="history-head"><div><p class="eyebrow">全部场次</p><h2 id="historyTitle">历次分享排班</h2></div><span id="historyCount" class="history-count"></span></div>
       <div id="emptyHistory" class="history-empty">暂无场次</div>
+      <button id="recentRound" class="outline hidden" type="button">打开上次场次</button>
       <div id="historyList" class="history-list"></div>
     </section>
 
     <section id="drawView" class="draw-view hidden">
       <div class="draw-head">
-        <div><button id="backHome" class="text-btn">‹ 场次列表</button><p class="eyebrow">当前场次</p><h1 id="drawTitle"></h1></div>
+        <div><button id="backHome" class="text-btn">‹ 返回主页</button><p class="eyebrow">当前场次</p><h1 id="drawTitle"></h1></div>
         <div class="draw-count"><strong id="personCount">0</strong><span>位已抽签</span></div>
       </div>
       <p id="closedNotice" class="person-sub hidden">抽签已结束，排班尚未归档。</p>
@@ -87,7 +88,7 @@
         <p class="eyebrow">抽签完成 · 排班已生成</p>
         <h1 id="scheduleTitle"></h1>
         <p>每周两人，按抽签顺序汇报。</p>
-        <div class="result-actions"><button id="csvBtn" class="primary">导出 CSV</button><button id="copyBtn" class="outline">复制排班</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="deleteScheduleBtn" class="outline hidden" type="button">删除排班</button><button id="newBtn" class="text-btn">场次列表</button></div>
+        <div class="result-actions"><button id="csvBtn" class="primary">导出 CSV</button><button id="copyBtn" class="outline">复制排班</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="deleteScheduleBtn" class="outline hidden" type="button">删除排班</button><button id="newBtn" class="text-btn">返回主页</button></div>
       </div>
       <section class="schedule-card">
         <div class="schedule-card-head"><div><p class="eyebrow">分享汇报排班表</p><h2 id="scheduleName"></h2></div><span id="startDateBadge"></span></div>
@@ -98,6 +99,6 @@
   </main>
   <div id="toast" class="toast" role="status"></div>
   <script src="config.js" defer></script>
-  <script src="app.js?v=unified-round-1" defer></script>
+  <script src="app.js?v=home-round-2" defer></script>
 </body>
 </html>

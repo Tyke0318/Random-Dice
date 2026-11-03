@@ -148,6 +148,7 @@ try {
   }
   const direct = open(base);
   assert.equal(direct('loginForm'), null);
+  await until(() => !direct('homeView').classList.contains('hidden'));
   const groupHome = open(base + '#group=' + group);
   await until(() => !groupHome('createForm').classList.contains('hidden'));
   assert.match(groupHome('historyList').textContent, /新标题/);
@@ -168,12 +169,13 @@ try {
   assert.ok(!a('editBtn').classList.contains('hidden'));
   assert.ok(!a('finishBtn').classList.contains('hidden'));
   assert.ok(!a('shareBtn').classList.contains('hidden'));
-  assert.ok(b('backHome').classList.contains('hidden'));
+  assert.ok(!b('backHome').classList.contains('hidden'));
   assert.equal(b('groupIntro'), null);
-  const participantWindow = b('shareBtn').ownerDocument.defaultView;
-  participantWindow.location.hash = '';
-  await until(() => participantWindow.location.hash === '#share=' + uiShare &&
-    !b('drawView').classList.contains('hidden'));
+  b('backHome').click();
+  await until(() => !b('homeView').classList.contains('hidden'));
+  assert.ok(b('createForm').classList.contains('hidden'));
+  b('recentRound').click();
+  await until(() => !b('drawView').classList.contains('hidden'));
   const managerWindow = groupHome('shareBtn').ownerDocument.defaultView;
   managerWindow.location.hash = new URL(url).hash;
   await until(() => !groupHome('backHome').classList.contains('hidden') &&
