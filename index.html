@@ -23,7 +23,7 @@
     <section id="homeView" class="home-view">
       <div class="intro">
         <p class="eyebrow">GROUP MEETING</p>
-        <h1>公平排出每一次<br><em>组会分享</em></h1>
+        <h1>组会分享抽签</h1>
         <p class="subtext">新建场次，分享链接，收齐抽签后生成排班。</p>
       </div>
       <div>
@@ -56,7 +56,8 @@
         <div><button id="backHome" class="text-btn">‹ 返回主页</button><p class="eyebrow">当前场次</p><h1 id="drawTitle"></h1></div>
         <div class="draw-count"><strong id="personCount">0</strong><span>位已抽签</span></div>
       </div>
-      <div class="draw-grid">
+      <p id="closedNotice" class="person-sub hidden">抽签已结束，排班尚未归档。</p>
+      <div id="drawGrid" class="draw-grid">
         <section class="name-panel">
           <form id="drawForm">
             <label for="personName">姓名</label>
@@ -91,7 +92,7 @@
         <p class="eyebrow">抽签完成 · 排班已生成</p>
         <h1 id="scheduleTitle"></h1>
         <p>每周两人，按抽签顺序汇报。</p>
-        <div class="result-actions"><button id="csvBtn" class="primary">导出 CSV</button><button id="copyBtn" class="outline">复制排班</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="newBtn" class="text-btn">返回主页</button></div>
+        <div class="result-actions"><button id="csvBtn" class="primary">导出 CSV</button><button id="copyBtn" class="outline">复制排班</button><button id="printBtn" class="outline">打印 / 存为 PDF</button><button id="deleteScheduleBtn" class="outline hidden" type="button">删除排班</button><button id="newBtn" class="text-btn">返回主页</button></div>
       </div>
       <section class="schedule-card">
         <div class="schedule-card-head"><div><p class="eyebrow">分享汇报排班表</p><h2 id="scheduleName"></h2></div><span id="startDateBadge"></span></div>
@@ -102,6 +103,6 @@
   </main>
   <div id="toast" class="toast" role="status"></div>
   <script src="config.js" defer></script>
-  <script src="app.js?v=home-nav-1" defer></script>
+  <script src="app.js?v=schedule-delete-1" defer></script>
 </body>
 </html>

@@ -123,11 +123,11 @@
     $('historyList').innerHTML = records.map(item => `
       <article class="history-card">
         <div class="history-card-top">
-          <div><p class="eyebrow">${item.finished_at ? '已归档' : '抽签中'}</p><h3>${escape(item.name)}</h3></div>
+          <div><p class="eyebrow">${item.has_schedule ? '已归档' : item.finished_at ? '抽签已结束' : '抽签中'}</p><h3>${escape(item.name)}</h3></div>
           <span class="person-dice">${item.dice_mode ? item.drawn + ' 人' : item.drawn + '/' + item.total}</span>
         </div>
         <p class="history-date">${fmtDate(item.start_date)} 开始 · 每周两人</p>
-        <div class="history-actions"><button data-round="${item.id}">${item.finished_at ? '查看排班' : '查看抽签进度'}</button></div>
+        <div class="history-actions"><button data-round="${item.id}">${item.has_schedule ? '查看排班' : item.finished_at ? '查看抽签结果' : '查看抽签进度'}</button></div>
       </article>`).join('');
     show('homeView');
   }
@@ -160,7 +160,9 @@
     const manager = !!route().group;
     visible('shareBtn', manager && !!shareKey);
     visible('refreshBtn', true);
-    visible('editBtn', manager);
+    visible('editBtn', manager && !round.finished_at);
+    if (round.finished_at) visible('editForm', false);
+    visible('deleteScheduleBtn', manager && !!round.schedule);
     visible('finishBtn', manager);
   }
 
@@ -170,6 +172,9 @@
     renderSelection();
     $('drawTitle').textContent = round.name;
     $('personCount').textContent = round.dice_mode ? drawn.length : `${drawn.length}/${round.entries.length}`;
+    visible('drawGrid', !round.finished_at);
+    visible('closedNotice', !!round.finished_at);
+    $('finishBtn').textContent = round.finished_at ? '重新归档排班' : '结束抽签并归档';
     $('finishBtn').disabled = !drawn.length || (!round.dice_mode && drawn.length !== round.entries.length);
     visible('rankNote', round.dice_mode && drawn.length > 0);
     visible('progressEmpty', !drawn.length);
@@ -231,7 +236,7 @@
         if (JSON.stringify(round) !== JSON.stringify(data) || shareKey !== key) {
           shareKey = key;
           round = data;
-          if (round.finished_at) renderSchedule();
+          if (round.schedule) renderSchedule();
           else renderDraw();
         }
       } else {
@@ -341,9 +346,17 @@
 
   $('finishBtn').addEventListener('click', () => action($('finishBtn'), async () => {
     const current = route();
-    if (!window.confirm('结束抽签并归档当前排班？')) return;
+    if (!round.finished_at && !window.confirm('结束抽签并归档当前排班？')) return;
     await rpc('finish', {p_round: current.round});
     if (route().round === current.round) await load(true);
+  }));
+
+  $('deleteScheduleBtn').addEventListener('click', () => action($('deleteScheduleBtn'), async () => {
+    if (!round?.schedule || !route().group) return;
+    if (!window.confirm('删除已归档的排班？抽签结果会保留，场次仍保持结束。')) return;
+    const from = location.hash;
+    await rpc('delete_schedule', {p_round: route().round});
+    if (location.hash === from) await load(true);
   }));
 
   $('shareBtn').addEventListener('click', () => {

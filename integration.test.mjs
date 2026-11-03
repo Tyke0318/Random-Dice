@@ -23,6 +23,7 @@ const args = {
   edit: ['p_group', 'p_round', 'p_name', 'p_start'],
   draw: ['p_group', 'p_round', 'p_name'], finish: ['p_group', 'p_round'],
   share: ['p_group', 'p_round'],
+  delete_schedule: ['p_group', 'p_round'],
   create_dice: ['p_group', 'p_round', 'p_name', 'p_start'],
   roll: ['p_group', 'p_round', 'p_name'],
   share_round: ['p_share'], share_draw: ['p_share', 'p_name'],
@@ -67,6 +68,7 @@ try {
   await db.query(await read('schema.sql'));
   await db.query(await read('group-access.sql'));
   await db.query(await read('round-share.sql'));
+  await db.query(await read('delete-schedule.sql'));
   const {rows:[settings]} = await db.query('select group_key, viewer_key from meeting_private.settings');
   const {group_key: group, viewer_key: oldViewer} = settings;
   const anon = await connect();
@@ -214,6 +216,18 @@ try {
   assert.match(csv, /"周次","日期","顺序","姓名","点数"/);
   assert.match(csv, /"2026-11-09","1","[^"]+","[1-6]"/);
   assert.equal(csv.split('\r\n').length, 8);
+  await assert.rejects(rpc(anon, 'delete_schedule', uiShare, uiRound), {code:'42501'});
+  groupHome('deleteScheduleBtn').click();
+  await until(() => !groupHome('drawView').classList.contains('hidden'));
+  const removed = await rpc(anon, 'share_round', uiShare);
+  assert.equal(removed.schedule, null);
+  assert.equal(removed.finished_at, final.finished_at);
+  assert.deepEqual(removed.entries, final.entries);
+  assert.ok(groupHome('drawGrid').classList.contains('hidden'));
+  await assert.rejects(rpc(anon, 'share_draw', uiShare, '迟到'), /已归档/);
+  groupHome('finishBtn').click();
+  await until(() => !groupHome('scheduleView').classList.contains('hidden'));
+  assert.deepEqual((await rpc(anon, 'share_round', uiShare)).schedule, final.schedule);
   a('newBtn').click();
   await until(() => !a('homeView').classList.contains('hidden'));
   console.log('PASS 参与者可往返主页，负责人可从参与页回管理主页归档，参与链接可查看及导出');
