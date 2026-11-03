@@ -15,27 +15,22 @@
   <main class="shell">
     <header class="topbar">
       <a class="brand" href="#" aria-label="组会抽签主页"><span class="brand-mark">🎲</span><span>组会抽签</span></a>
-      <button id="signOut" class="text-btn hidden" type="button">管理员退出</button>
+      <button id="copyGroup" class="text-btn hidden" type="button">复制群链接</button>
     </header>
     <p id="status" class="shared-status" role="status">正在连接共享服务…</p>
-    <p id="setupNote" class="shared-status hidden">管理员可查看<a href="https://github.com/Tyke0318/Random-Dice#首次接通共享后端">部署步骤</a>。</p>
+    <p id="setupNote" class="shared-status hidden">请查看<a href="https://github.com/Tyke0318/Random-Dice#部署">部署步骤</a>。</p>
 
     <section id="homeView" class="home-view">
       <div class="intro">
         <p class="eyebrow">GROUP MEETING</p>
         <h1>公平排出每一次<br><em>组会分享</em></h1>
-        <p class="subtext">组员打开自己的链接，抽取一个唯一的汇报顺序号。全员抽完后，由管理员生成每周两人的排班，组内可随时查看。</p>
+        <p class="subtext">打开群里的链接，选自己的名字抽签。全员抽完后，组内任何人都可以生成每周两人的排班。</p>
       </div>
       <div>
-        <form id="loginForm" class="create-card hidden">
-          <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">管理入口</p><h2>管理员登录</h2></div></div>
-          <label for="email">邮箱</label>
-          <input id="email" type="email" autocomplete="username" required />
-          <label for="password">密码</label>
-          <input id="password" type="password" autocomplete="current-password" required />
-          <button class="primary">登录 <span>→</span></button>
-          <p class="person-sub">组员请使用管理员发来的个人抽签链接或组内查看链接。</p>
-        </form>
+        <section id="groupIntro" class="create-card">
+          <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">组内入口</p><h2>从课题组群打开</h2></div></div>
+          <p class="person-sub">请打开群里分享的完整链接。无需账号和密码。</p>
+        </section>
         <form id="createForm" class="create-card hidden">
           <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">开始一场新的抽签</p><h2>新建汇报场次</h2></div></div>
           <label for="sessionName">场次名称</label>
@@ -45,11 +40,10 @@
           <label for="roster">组员名单（每行一位）</label>
           <textarea id="roster" rows="4" maxlength="2500" placeholder="同名组员请加区分标记" required></textarea>
           <button class="primary">创建场次 <span>→</span></button>
-          <button id="copyGroup" type="button" class="text-btn">复制组内查看链接</button>
         </form>
       </div>
       <div class="how-it-works home-flow">
-        <span>打开专属链接</span><b>·</b><span>抽取顺序号</span><b>·</b><span>生成排班表</span>
+        <span>选择自己的姓名</span><b>·</b><span>抽取顺序号</span><b>·</b><span>生成排班表</span>
       </div>
     </section>
     <section id="historySection" class="history-section hidden" aria-labelledby="historyTitle">
@@ -66,9 +60,11 @@
       <div class="draw-grid">
         <section class="name-panel">
           <p class="eyebrow">汇报顺序</p>
-          <h2 id="memberTitle">组内抽签进度</h2>
-          <button id="rollBtn" class="primary roll hidden" type="button">抽取我的顺序号 <span>🎲</span></button>
-          <div class="fair-note"><span>✦</span><p id="drawNote">各组员使用自己的链接抽取。结果由服务器保存，同一个链接换设备打开也能找回原顺序号。</p></div>
+          <h2>选择自己的姓名</h2>
+          <label class="sr-only" for="personName">姓名</label>
+          <select id="personName" class="group-select"></select>
+          <button id="rollBtn" class="primary roll" type="button" disabled>抽取我的顺序号 <span>🎲</span></button>
+          <div class="fair-note"><span>✦</span><p id="drawNote">每个姓名只能抽一次。换设备后，重新选择姓名即可查看已抽号码。</p></div>
         </section>
         <section class="dice-panel" aria-live="polite">
           <p class="eyebrow">本次结果</p>
@@ -77,8 +73,15 @@
         </section>
       </div>
       <section class="participants">
-        <div class="section-title"><div><p class="eyebrow">抽签结果</p><h2>全员抽签进度</h2></div><button id="finishBtn" class="outline hidden" disabled>结束抽签，生成排班 <span>→</span></button></div>
-        <p id="inviteNote" class="person-sub hidden">请将专属链接分别私发给对应组员。组内进度和历史可用主页上的只读链接分享。</p>
+        <div class="section-title"><div><p class="eyebrow">抽签结果</p><h2>全员抽签进度</h2></div><button id="finishBtn" class="outline" disabled>结束抽签，生成排班 <span>→</span></button></div>
+        <button id="editBtn" type="button" class="text-btn">修改场次信息</button>
+        <form id="editForm" class="create-card hidden">
+          <label for="editName">场次名称</label>
+          <input id="editName" maxlength="40" required />
+          <label for="editDate">第一周汇报日期</label>
+          <input id="editDate" type="date" min="2000-01-01" max="2100-12-31" required />
+          <button class="primary">保存修改</button>
+        </form>
         <ol id="peopleList" class="people-list"></ol>
       </section>
     </section>

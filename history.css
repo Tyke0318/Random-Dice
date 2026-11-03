@@ -5,6 +5,6 @@
 .shared-status:empty{display:none}
 .create-card textarea{display:block;width:100%;font:inherit;resize:vertical;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);margin-bottom:16px}
 .create-card .text-btn{margin-top:12px}
-.person-row .invite-copy{border:0;background:none;color:var(--blue);font:inherit;cursor:pointer;padding:4px 0;text-align:left}
+.group-select{display:block;width:100%;font:inherit;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink)}
 .person-row .person-name,.history-card h3,.draw-head h1{overflow-wrap:anywhere}
 @media print{.shared-status{display:none!important}}
