@@ -28,7 +28,6 @@ const args = {
   roll: ['p_group', 'p_round', 'p_name'],
   share_round: ['p_share'], share_draw: ['p_share', 'p_name'],
   share_edit: ['p_share', 'p_name', 'p_start'], share_finish: ['p_share'],
-  share_delete_schedule: ['p_share'],
 };
 const read = name => readFile(new URL(name, import.meta.url), 'utf8');
 
@@ -72,6 +71,7 @@ try {
   await db.query(await read('round-share.sql'));
   await db.query(await read('delete-schedule.sql'));
   await db.query(await read('unified-round.sql'));
+  await db.query(await read('permanent-schedule-delete.sql'));
   const {rows:[settings]} = await db.query('select group_key, viewer_key from meeting_private.settings');
   const {group_key: group, viewer_key: oldViewer} = settings;
   const anon = await connect();
@@ -222,7 +222,12 @@ try {
   assert.match(csv, /"2026-11-09","1","[^"]+","[1-6]"/);
   assert.equal(csv.split('\r\n').length, 8);
   await assert.rejects(rpc(anon, 'delete_schedule', uiShare, uiRound), {code:'42501'});
-  a('deleteScheduleBtn').click();
+  assert.equal(a('deleteScheduleBtn'), null);
+  groupHome('backHome').click();
+  await until(() => !!groupHome('historyList').querySelector('[data-delete-schedule="' + uiRound + '"]'));
+  groupHome('historyList').querySelector('[data-delete-schedule="' + uiRound + '"]').click();
+  await until(() => !groupHome('historyList').querySelector('[data-round="' + uiRound + '"]'));
+  a('refreshBtn').click();
   await until(() => !a('drawView').classList.contains('hidden'));
   const removed = await rpc(anon, 'share_round', uiShare);
   assert.equal(removed.schedule, null);
@@ -230,10 +235,11 @@ try {
   assert.deepEqual(removed.entries, final.entries);
   assert.ok(a('drawGrid').classList.contains('hidden'));
   await assert.rejects(rpc(anon, 'share_draw', uiShare, '迟到'), /已归档/);
-  a('finishBtn').click();
-  await until(() => !a('scheduleView').classList.contains('hidden'));
-  assert.deepEqual((await rpc(anon, 'share_round', uiShare)).schedule, final.schedule);
-  console.log('PASS 场次直达姓名框、同页归档与删除、保留抽签、导出 CSV');
+  assert.ok(a('finishBtn').classList.contains('hidden'));
+  await assert.rejects(rpc(anon, 'finish', group, uiRound), /已永久删除/);
+  await assert.rejects(rpc(anon, 'share_finish', uiShare), /已永久删除/);
+  assert.equal((await rpc(anon, 'share_round', uiShare)).schedule, null);
+  console.log('PASS 主页永久删除归档、保留抽签、禁止恢复');
 } finally {
   windows.forEach(window => window.close());
   await Promise.allSettled(clients.map(client => client.end()));

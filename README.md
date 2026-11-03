@@ -7,11 +7,11 @@
 3. 组员打开该链接，填写自己的姓名并抽签。每人掷出 1–6 点。同名重复提交会取回原点数，同名组员请用不同的姓名标记。
 4. 排班按点数升序，同点数按抽签先后。页面自动同步，也可点「刷新」。负责人结束抽签后可归档，每周两人。归档排班可导出 CSV、复制或打印。
 
-场次链接直接打开姓名框，持链接者可以修改本场信息、归档或删除本场排班。删除排班会保留抽签结果，场次仍保持结束。新建场次和查看全部历史用原场次列表入口。直接访问网站会显示主页。组员可从场次页返回主页，再打开最近访问的场次。
+场次链接直接打开姓名框，持链接者可以修改本场信息和归档。主页场次列表可永久删除已归档的排班，抽签结果会保留。新建场次和查看全部历史用原场次列表入口。直接访问网站会显示主页。组员可从场次页返回主页，再打开最近访问的场次。
 
 ## 部署
 
-- 已运行群链接版的 Supabase 项目，在 SQL Editor 执行尚未运行的升级脚本。全新项目依次执行 [schema.sql](schema.sql)、[group-access.sql](group-access.sql)、[round-share.sql](round-share.sql)、[delete-schedule.sql](delete-schedule.sql)、[unified-round.sql](unified-round.sql)。
+- 已运行群链接版的 Supabase 项目，在 SQL Editor 执行尚未运行的升级脚本。全新项目依次执行 [schema.sql](schema.sql)、[group-access.sql](group-access.sql)、[round-share.sql](round-share.sql)、[delete-schedule.sql](delete-schedule.sql)、[unified-round.sql](unified-round.sql)、[permanent-schedule-delete.sql](permanent-schedule-delete.sql)。
 - [config.js](config.js) 配置 Project URL 和公开 Publishable key。Pages 使用 `main` 根目录。Data API 只需开放默认的 `public` schema。
 - 管理链接由项目负责人在 SQL Editor 获取，避免提交到仓库。
 

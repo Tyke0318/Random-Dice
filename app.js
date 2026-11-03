@@ -136,7 +136,7 @@
           <span class="person-dice">${item.dice_mode ? item.drawn + ' 人' : item.drawn + '/' + item.total}</span>
         </div>
         <p class="history-date">${fmtDate(item.start_date)} 开始 · 每周两人</p>
-        <div class="history-actions"><button data-round="${item.id}">${item.has_schedule ? '查看排班' : item.finished_at ? '查看抽签结果' : '查看抽签进度'}</button></div>
+        <div class="history-actions"><button data-round="${item.id}">${item.has_schedule ? '查看排班' : item.finished_at ? '查看抽签结果' : '查看抽签进度'}</button>${item.has_schedule ? `<button class="delete-session" data-delete-schedule="${item.id}" type="button">删除排班</button>` : ''}</div>
       </article>`).join('');
     show('homeView');
   }
@@ -172,8 +172,7 @@
     visible('newBtn', true);
     visible('editBtn', !round.finished_at);
     if (round.finished_at) visible('editForm', false);
-    visible('deleteScheduleBtn', !!round.schedule);
-    visible('finishBtn', true);
+    visible('finishBtn', !round.finished_at);
   }
 
   function renderDraw() {
@@ -184,7 +183,6 @@
     $('personCount').textContent = round.dice_mode ? drawn.length : `${drawn.length}/${round.entries.length}`;
     visible('drawGrid', !round.finished_at);
     visible('closedNotice', !!round.finished_at);
-    $('finishBtn').textContent = round.finished_at ? '重新归档排班' : '结束抽签并归档';
     $('finishBtn').disabled = !drawn.length || (!round.dice_mode && drawn.length !== round.entries.length);
     visible('rankNote', round.dice_mode && drawn.length > 0);
     visible('progressEmpty', !drawn.length);
@@ -362,17 +360,8 @@
   $('finishBtn').addEventListener('click', () => action($('finishBtn'), async () => {
     const from = location.hash;
     const current = route();
-    if (!round.finished_at && !window.confirm('结束抽签并归档当前排班？')) return;
+    if (round.finished_at || !window.confirm('结束抽签并归档当前排班？')) return;
     await rpc('finish', current.share ? {} : {p_round: current.round});
-    if (location.hash === from) await load(true);
-  }));
-
-  $('deleteScheduleBtn').addEventListener('click', () => action($('deleteScheduleBtn'), async () => {
-    if (!round?.schedule) return;
-    if (!window.confirm('删除已归档的排班？抽签结果会保留，场次仍保持结束。')) return;
-    const from = location.hash;
-    const current = route();
-    await rpc('delete_schedule', current.share ? {} : {p_round: current.round});
     if (location.hash === from) await load(true);
   }));
 
@@ -381,6 +370,16 @@
   });
   $('refreshBtn').addEventListener('click', () => action($('refreshBtn'), () => load(true)));
   $('historyList').addEventListener('click', event => {
+    const remove = event.target.closest('[data-delete-schedule]');
+    if (remove) {
+      action(remove, async () => {
+        if (!window.confirm('永久删除这份排班？抽签记录会保留，排班无法恢复。')) return;
+        const from = location.hash;
+        await rpc('delete_schedule', {p_round: remove.dataset.deleteSchedule});
+        if (location.hash === from) await load(true);
+      });
+      return;
+    }
     const id = event.target.closest('[data-round]')?.dataset.round;
     if (id) navigate({...homeParams(), round: id});
   });
