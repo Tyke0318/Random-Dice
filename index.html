@@ -29,7 +29,8 @@
       <div>
         <section id="groupIntro" class="create-card">
           <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">组内入口</p><h2>从课题组群打开</h2></div></div>
-          <p class="person-sub">请打开本期场次链接。</p>
+          <p class="person-sub">参与者打开本期链接。负责人用管理入口查看和归档。</p>
+          <button id="resumeRound" type="button" class="outline hidden">返回本场</button>
         </section>
         <form id="createForm" class="create-card hidden">
           <div class="card-heading"><span class="step-number">01</span><div><p class="eyebrow">开始一场新的抽签</p><h2>新建汇报场次</h2></div></div>
@@ -70,7 +71,7 @@
         </section>
       </div>
       <section class="participants">
-        <div class="section-title"><div><p class="eyebrow">抽签结果</p><h2>排班进度</h2></div><button id="finishBtn" class="outline" disabled>归档排班</button></div>
+        <div class="section-title"><div><p class="eyebrow">抽签结果</p><h2>排班进度</h2></div><button id="finishBtn" class="outline" disabled>结束抽签并归档</button></div>
         <button id="editBtn" type="button" class="text-btn">修改场次信息</button>
         <form id="editForm" class="create-card hidden">
           <label for="editName">场次名称</label>
@@ -101,6 +102,6 @@
   </main>
   <div id="toast" class="toast" role="status"></div>
   <script src="config.js" defer></script>
-  <script src="app.js?v=round-share-1" defer></script>
+  <script src="app.js?v=home-nav-1" defer></script>
 </body>
 </html>

@@ -163,6 +163,22 @@ try {
   assert.ok(a('editBtn').classList.contains('hidden'));
   assert.ok(a('finishBtn').classList.contains('hidden'));
   assert.ok(a('shareBtn').classList.contains('hidden'));
+  assert.ok(!b('backHome').classList.contains('hidden'));
+  b('backHome').click();
+  await until(() => !b('homeView').classList.contains('hidden'));
+  assert.ok(b('createForm').classList.contains('hidden'));
+  b('resumeRound').click();
+  await until(() => !b('drawView').classList.contains('hidden'));
+  const managerWindow = groupHome('shareBtn').ownerDocument.defaultView;
+  managerWindow.location.hash = new URL(url).hash;
+  await until(() => groupHome('shareBtn').classList.contains('hidden') &&
+    !groupHome('drawView').classList.contains('hidden'));
+  groupHome('backHome').click();
+  await until(() => !groupHome('createForm').classList.contains('hidden'));
+  const sameRound = groupHome('historyList').querySelector('[data-round="' + uiRound + '"]');
+  sameRound.click();
+  await until(() => !groupHome('shareBtn').classList.contains('hidden'));
+  assert.ok(!groupHome('finishBtn').classList.contains('hidden'));
   for (const [page, name] of [[a, names[0]], [b, names[1]]]) {
     page('personName').value = name;
     page('personName').dispatchEvent(new (page('personName').ownerDocument.defaultView.Event)('input'));
@@ -183,7 +199,10 @@ try {
   assert.ok(results.every(result => result >= 1 && result <= 6));
   const live = await rpc(anon, 'share_round', uiShare);
   const expected = [...live.entries].sort((a,b) => a.die - b.die).map(entry => entry.name);
-  await rpc(anon, 'finish', group, uiRound);
+  groupHome('refreshBtn').click();
+  await until(() => !groupHome('finishBtn').disabled);
+  groupHome('finishBtn').click();
+  await until(() => !groupHome('scheduleView').classList.contains('hidden'));
   const final = await rpc(anon, 'share_round', uiShare);
   assert.deepEqual(final.schedule.flatMap(week => week.speakers.map(entry => entry.name)), expected);
   await assert.rejects(rpc(anon, 'share_draw', uiShare, '迟到'), /已归档/);
@@ -195,7 +214,9 @@ try {
   assert.match(csv, /"周次","日期","顺序","姓名","点数"/);
   assert.match(csv, /"2026-11-09","1","[^"]+","[1-6]"/);
   assert.equal(csv.split('\r\n').length, 8);
-  console.log('PASS 独立场次页面、无建场表单、换设备查看原号、刷新归档和 CSV 入口');
+  a('newBtn').click();
+  await until(() => !a('homeView').classList.contains('hidden'));
+  console.log('PASS 参与者可往返主页，负责人可从参与页回管理主页归档，参与链接可查看及导出');
 } finally {
   windows.forEach(window => window.close());
   await Promise.allSettled(clients.map(client => client.end()));

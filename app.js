@@ -11,6 +11,8 @@
   let overview = null;
   let round = null;
   let shareKey = null;
+  let lastShare = null;
+  const managementStorage = 'random-dice.management-group';
   let busy = false;
   let polling = false;
   let revision = 0;
@@ -100,8 +102,17 @@
     return current.group ? {group: current.group} : {};
   }
 
+  function returnHome() {
+    let group = new URLSearchParams(location.hash.slice(1)).get('group');
+    if (!group) {
+      try { group = localStorage.getItem(managementStorage); } catch {}
+    }
+    navigate(uuid.test(group ?? '') ? {group} : {});
+  }
+
   function renderHome() {
     visible('groupIntro', !overview);
+    visible('resumeRound', !overview && !!lastShare);
     visible('createForm', !!overview);
     visible('shareBtn', false);
     visible('refreshBtn', !!overview);
@@ -149,8 +160,6 @@
     const manager = !!route().group;
     visible('shareBtn', manager && !!shareKey);
     visible('refreshBtn', true);
-    visible('backHome', manager);
-    visible('newBtn', manager);
     visible('editBtn', manager);
     visible('finishBtn', manager);
   }
@@ -218,6 +227,7 @@
           current.group && !shareKey ? rpc('share', {p_round: current.round}) : shareKey,
         ]);
         if (version !== revision) return;
+        if (current.share) lastShare = current.share;
         if (JSON.stringify(round) !== JSON.stringify(data) || shareKey !== key) {
           shareKey = key;
           round = data;
@@ -231,6 +241,9 @@
           overview = data;
           renderHome();
         }
+      }
+      if (current.group && !quiet) {
+        try { localStorage.setItem(managementStorage, current.group); } catch {}
       }
       status();
     } catch (error) {
@@ -364,11 +377,14 @@
     copy([round.name + '｜分享汇报排班表', ...lines].join('\n'), '排班表已复制');
   });
   $('printBtn').addEventListener('click', () => window.print());
-  $('backHome').addEventListener('click', () => navigate(homeParams()));
-  $('newBtn').addEventListener('click', () => navigate(homeParams()));
+  $('backHome').addEventListener('click', returnHome);
+  $('newBtn').addEventListener('click', returnHome);
+  $('resumeRound').addEventListener('click', () => {
+    if (lastShare) navigate({share: lastShare});
+  });
   document.querySelector('.brand').addEventListener('click', event => {
     event.preventDefault();
-    try { if (!route().share) navigate(homeParams()); } catch { navigate({}); }
+    returnHome();
   });
 
   window.addEventListener('hashchange', () => load());
