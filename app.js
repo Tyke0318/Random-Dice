@@ -8,7 +8,6 @@
   const dateFormat = new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC',
   });
-  let auth = null;
   let overview = null;
   let round = null;
   let busy = false;
@@ -33,10 +32,10 @@
 
   function route() {
     const params = new URLSearchParams(location.hash.slice(1));
-    const values = Object.fromEntries(['round', 'view', 'invite'].map(key => [key, params.get(key)]));
+    const values = {group: params.get('group'), round: params.get('round')};
     if (Object.values(values).some(value => value !== null && !uuid.test(value))
-      || (values.invite && !values.round)) {
-      throw new Error('链接格式有误，请使用管理员分享的完整链接。');
+      || (!values.group && location.hash.length > 1)) {
+      throw new Error('请打开课题组群里分享的完整链接。');
     }
     return values;
   }
@@ -53,9 +52,8 @@
     location.hash = target;
   }
 
-  async function request(path, body, token = auth?.token) {
+  async function request(path, body) {
     const headers = {'Content-Type': 'application/json', apikey: config.publishableKey};
-    if (token) headers.Authorization = 'Bearer ' + token;
     let response;
     try {
       response = await fetch(config.url + path, {
@@ -66,14 +64,6 @@
     }
     const result = await response.json().catch(() => null);
     if (!response.ok) {
-      if (token && response.status === 401) {
-        auth = null;
-        overview = round = null;
-        $('peopleList').replaceChildren();
-        visible('signOut', false);
-        renderHome(homeParams());
-        throw new Error('管理员登录已过期，请重新登录。');
-      }
       const message = result?.message;
       if (message && /[\u4e00-\u9fff]/.test(message)) throw new Error(message);
       throw new Error('请求失败，请稍后重试。若是首次部署，请检查共享服务配置。');
@@ -81,8 +71,8 @@
     return result;
   }
 
-  function rpc(name, body, token) {
-    return request('/rest/v1/rpc/meeting_' + name, body, token);
+  function rpc(name, body) {
+    return request('/rest/v1/rpc/meeting_group_' + name, {p_group: route().group, ...body});
   }
 
   function escape(value) {
@@ -103,13 +93,13 @@
   }
 
   function homeParams(current = route()) {
-    return current.view ? {view: current.view} : {};
+    return current.group ? {group: current.group} : {};
   }
 
-  function renderHome(current) {
-    const admin = overview?.admin;
-    visible('loginForm', !admin && !current.view);
-    visible('createForm', !!admin);
+  function renderHome() {
+    visible('groupIntro', !overview);
+    visible('createForm', !!overview);
+    visible('copyGroup', !!overview);
     if (!$('sessionDate').value) $('sessionDate').value = nextMonday();
     const records = overview?.rounds || [];
     $('historyCount').textContent = records.length ? `共 ${records.length} 场` : '';
@@ -126,26 +116,34 @@
     show('homeView');
   }
 
+  function renderSelection() {
+    const chosen = round?.entries.find(entry => entry.name === $('personName').value);
+    const slot = chosen?.slot;
+    $('diceValue').textContent = slot ?? '?';
+    $('diceCaption').textContent = slot ? `${chosen.name}的汇报顺序是第 ${slot} 位` : '等待抽签';
+    $('diceBox').className = slot ? 'dice-box' : 'dice-box idle';
+    $('rollBtn').disabled = busy || !chosen || slot !== null;
+  }
+
   function renderDraw() {
     const drawn = round.entries.filter(entry => entry.slot !== null).length;
-    const slot = round.mine?.slot;
+    const select = $('personName');
+    const name = select.value;
+    select.replaceChildren(new Option('请选择姓名', ''),
+      ...round.entries.map(entry => new Option(entry.name + (entry.slot ? '（已抽）' : ''), entry.name)));
+    if (round.entries.some(entry => entry.name === name)) select.value = name;
+    renderSelection();
     $('drawTitle').textContent = round.name;
     $('personCount').textContent = `${drawn}/${round.entries.length}`;
-    $('memberTitle').textContent = round.mine ? `${round.mine.name}，你好` : '组内抽签进度';
-    $('diceValue').textContent = slot ?? '?';
-    $('diceCaption').textContent = slot ? `你的汇报顺序是第 ${slot} 位` : '等待抽签';
-    $('diceBox').className = slot ? 'dice-box' : 'dice-box idle';
-    visible('rollBtn', !!round.mine && slot === null);
-    visible('finishBtn', round.admin);
-    visible('inviteNote', round.admin && drawn < round.entries.length);
     $('finishBtn').disabled = drawn !== round.entries.length;
-    $('peopleList').innerHTML = round.entries.map(entry => `
+    $('peopleList').innerHTML = [...round.entries].sort((a,b) => (a.slot ?? Infinity) - (b.slot ?? Infinity))
+      .map(entry => `
       <li class="person-row">
         <span class="rank">${entry.slot ? String(entry.slot).padStart(2, '0') : '—'}</span>
-        <div><div class="person-name">${escape(entry.name)}</div>
-        ${entry.invite ? `<button class="invite-copy" data-invite="${entry.invite}">复制专属链接</button>` : ''}</div>
+        <div class="person-name">${escape(entry.name)}</div>
         <span class="person-sub">${entry.slot ? '已抽签' : '待抽签'}</span>
       </li>`).join('');
+    visible('copyGroup', true);
     show('drawView');
   }
 
@@ -161,6 +159,7 @@
         <div class="speaker-chips">${week.speakers.map(p => `
           <span class="speaker-chip"><b>${p.slot}</b>${escape(p.name)}</span>`).join('')}</div>
       </div>`).join('');
+    visible('copyGroup', true);
     show('scheduleView');
   }
 
@@ -175,13 +174,15 @@
       const current = route();
       if (!quiet) {
         round = overview = null;
-        visible('loginForm', false);
+        visible('copyGroup', false);
+        visible('editForm', false);
+        $('personName').replaceChildren();
         visible('createForm', false);
         show('homeView');
         status('正在加载…');
       }
       if (current.round) {
-        const data = await rpc('round', {p_round: current.round, p_viewer: current.view, p_invite: current.invite});
+        const data = await rpc('round', {p_round: current.round});
         if (version !== revision) return;
         if (JSON.stringify(round) !== JSON.stringify(data)) {
           round = data;
@@ -189,11 +190,11 @@
           else renderDraw();
         }
       } else {
-        const data = auth || current.view ? await rpc('overview', {p_viewer: current.view}) : null;
+        const data = current.group ? await rpc('overview', {}) : null;
         if (version !== revision) return;
         if (!quiet || JSON.stringify(overview) !== JSON.stringify(data)) {
           overview = data;
-          renderHome(current);
+          renderHome();
         }
       }
       status();
@@ -201,8 +202,7 @@
       if (version !== revision) return;
       status(error.message, true);
       if (!quiet) {
-        show('homeView');
-        visible('loginForm', !auth);
+        renderHome();
       }
     }
   }
@@ -220,7 +220,8 @@
       if (version === revision) status(error.message, true);
     } finally {
       busy = false;
-      if (button !== $('finishBtn') || round?.entries.every(entry => entry.slot)) {
+      if (button === $('rollBtn')) renderSelection();
+      else if (button !== $('finishBtn') || round?.entries.every(entry => entry.slot)) {
         button.disabled = false;
       }
     }
@@ -238,32 +239,6 @@
     }
   }
 
-  $('loginForm').addEventListener('submit', event => {
-    event.preventDefault();
-    action(event.submitter, async () => {
-      try {
-        const session = await request('/auth/v1/token?grant_type=password', {
-          email: $('email').value.trim(), password: $('password').value,
-        }, null);
-        const data = await rpc('overview', {p_viewer: null}, session.access_token);
-        if (!data.admin) throw new Error('此账号没有管理员权限。');
-        auth = {token: session.access_token};
-        visible('signOut', true);
-        navigate({});
-      } catch (error) {
-        throw new Error('登录失败。请确认邮箱、密码、管理员权限及网络连接。', {cause: error});
-      } finally {
-        $('password').value = '';
-      }
-    });
-  });
-
-  $('signOut').addEventListener('click', () => {
-    auth = null;
-    visible('signOut', false);
-    navigate(homeParams());
-  });
-
   $('createForm').addEventListener('submit', event => {
     event.preventDefault();
     action(event.submitter, async () => {
@@ -278,24 +253,40 @@
       createAttempt = null;
       $('sessionName').value = '';
       $('roster').value = '';
-      navigate({round: id});
+      navigate({...homeParams(), round: id});
     });
   });
 
+  $('personName').addEventListener('change', renderSelection);
   $('rollBtn').addEventListener('click', () => action($('rollBtn'), async () => {
     const current = route();
+    const name = $('personName').value;
     $('diceBox').className = 'dice-box rolling';
-    try {
-      const slot = await rpc('draw', {p_round: current.round, p_invite: current.invite});
-      if (route().round !== current.round || route().invite !== current.invite) return;
-      $('diceValue').textContent = slot;
-      $('diceCaption').textContent = `你的汇报顺序是第 ${slot} 位`;
-      visible('rollBtn', false);
-      await load(true);
-    } finally {
-      $('diceBox').classList.remove('rolling');
-    }
+    await rpc('draw', {p_round: current.round, p_name: name});
+    if (route().round === current.round && route().group === current.group) await load(true);
   }));
+
+  $('editBtn').addEventListener('click', () => {
+    $('editName').value = round.name;
+    $('editDate').value = round.start_date;
+    visible('editForm', true);
+    $('editName').focus();
+  });
+  $('editForm').addEventListener('submit', event => {
+    event.preventDefault();
+    action(event.submitter, async () => {
+      const current = route();
+      await rpc('edit', {
+        p_round: current.round,
+        p_name: $('editName').value.trim(),
+        p_start: $('editDate').value,
+      });
+      if (route().round === current.round && route().group === current.group) {
+        visible('editForm', false);
+        await load(true);
+      }
+    });
+  });
 
   $('finishBtn').addEventListener('click', () => action($('finishBtn'), async () => {
     const current = route();
@@ -305,11 +296,7 @@
   }));
 
   $('copyGroup').addEventListener('click', () => {
-    if (overview?.viewer_key) copy(link({view: overview.viewer_key}), '组内查看链接已复制');
-  });
-  $('peopleList').addEventListener('click', event => {
-    const invite = event.target.closest('[data-invite]')?.dataset.invite;
-    if (invite && round?.admin) copy(link({round: round.id, invite}), '专属链接已复制，请私发给对应组员');
+    copy(link(homeParams()), '群链接已复制');
   });
   $('historyList').addEventListener('click', event => {
     const id = event.target.closest('[data-round]')?.dataset.round;
