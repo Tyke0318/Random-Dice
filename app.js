@@ -10,6 +10,7 @@
   });
   let overview = null;
   let round = null;
+  let shareKey = null;
   let busy = false;
   let polling = false;
   let revision = 0;
@@ -32,10 +33,10 @@
 
   function route() {
     const params = new URLSearchParams(location.hash.slice(1));
-    const values = {group: params.get('group'), round: params.get('round')};
+    const values = {group: params.get('group'), round: params.get('round'), share: params.get('share')};
     if (Object.values(values).some(value => value !== null && !uuid.test(value))
-      || (!values.group && location.hash.length > 1)) {
-      throw new Error('请打开课题组群里分享的完整链接。');
+      || (values.share ? values.group || values.round : !values.group && location.hash.length > 1)) {
+      throw new Error('请打开完整的场次链接。');
     }
     return values;
   }
@@ -72,7 +73,10 @@
   }
 
   function rpc(name, body) {
-    return request('/rest/v1/rpc/meeting_group_' + name, {p_group: route().group, ...body});
+    const current = route();
+    return current.share
+      ? request('/rest/v1/rpc/meeting_share_' + name, {p_share: current.share, ...body})
+      : request('/rest/v1/rpc/meeting_group_' + name, {p_group: current.group, ...body});
   }
 
   function escape(value) {
@@ -99,7 +103,8 @@
   function renderHome() {
     visible('groupIntro', !overview);
     visible('createForm', !!overview);
-    visible('copyGroup', !!overview);
+    visible('shareBtn', false);
+    visible('refreshBtn', !!overview);
     if (!$('sessionDate').value) $('sessionDate').value = nextMonday();
     const records = overview?.rounds || [];
     $('historyCount').textContent = records.length ? `共 ${records.length} 场` : '';
@@ -108,7 +113,7 @@
       <article class="history-card">
         <div class="history-card-top">
           <div><p class="eyebrow">${item.finished_at ? '已归档' : '抽签中'}</p><h3>${escape(item.name)}</h3></div>
-          <span class="person-dice">${item.drawn}/${item.total}</span>
+          <span class="person-dice">${item.dice_mode ? item.drawn + ' 人' : item.drawn + '/' + item.total}</span>
         </div>
         <p class="history-date">${fmtDate(item.start_date)} 开始 · 每周两人</p>
         <div class="history-actions"><button data-round="${item.id}">${item.finished_at ? '查看排班' : '查看抽签进度'}</button></div>
@@ -116,34 +121,59 @@
     show('homeView');
   }
 
+  function typedName() {
+    return $('personName').value.trim().replace(/\s+/gu, ' ');
+  }
+
+  function selectedEntry() {
+    const name = typedName().toLowerCase();
+    return round?.entries.find(entry => entry.name.toLowerCase() === name);
+  }
+
   function renderSelection() {
-    const chosen = round?.entries.find(entry => entry.name === $('personName').value);
-    const slot = chosen?.slot;
-    $('diceValue').textContent = slot ?? '?';
-    $('diceCaption').textContent = slot ? `${chosen.name}的汇报顺序是第 ${slot} 位` : '等待抽签';
-    $('diceBox').className = slot ? 'dice-box' : 'dice-box idle';
-    $('rollBtn').disabled = busy || !chosen || slot !== null;
+    const chosen = selectedEntry();
+    const result = chosen?.die ?? chosen?.slot;
+    $('diceValue').textContent = result ?? '?';
+    $('diceCaption').textContent = result ? (round.dice_mode ? `${result} 点` : `第 ${result} 位`) : '等待抽签';
+    $('diceBox').className = result ? 'dice-box' : 'dice-box idle';
+    $('rollBtn').disabled = busy || !typedName() || !!result;
+  }
+
+  function weekDate(slot) {
+    const date = new Date(round.start_date + 'T00:00:00Z');
+    date.setUTCDate(date.getUTCDate() + 7 * Math.floor((slot - 1) / 2));
+    return date.toISOString().slice(0, 10);
+  }
+
+  function renderRoundControls() {
+    const manager = !!route().group;
+    visible('shareBtn', manager && !!shareKey);
+    visible('refreshBtn', true);
+    visible('backHome', manager);
+    visible('newBtn', manager);
+    visible('editBtn', manager);
+    visible('finishBtn', manager);
   }
 
   function renderDraw() {
-    const drawn = round.entries.filter(entry => entry.slot !== null).length;
-    const select = $('personName');
-    const name = select.value;
-    select.replaceChildren(new Option('请选择姓名', ''),
-      ...round.entries.map(entry => new Option(entry.name + (entry.slot ? '（已抽）' : ''), entry.name)));
-    if (round.entries.some(entry => entry.name === name)) select.value = name;
+    const drawn = round.entries.filter(entry => (entry.die ?? entry.slot) !== null)
+      .sort((a,b) => (a.die ?? a.slot) - (b.die ?? b.slot));
     renderSelection();
     $('drawTitle').textContent = round.name;
-    $('personCount').textContent = `${drawn}/${round.entries.length}`;
-    $('finishBtn').disabled = drawn !== round.entries.length;
-    $('peopleList').innerHTML = [...round.entries].sort((a,b) => (a.slot ?? Infinity) - (b.slot ?? Infinity))
-      .map(entry => `
+    $('personCount').textContent = round.dice_mode ? drawn.length : `${drawn.length}/${round.entries.length}`;
+    $('finishBtn').disabled = !drawn.length || (!round.dice_mode && drawn.length !== round.entries.length);
+    visible('rankNote', round.dice_mode && drawn.length > 0);
+    visible('progressEmpty', !drawn.length);
+    $('peopleList').innerHTML = drawn.map((entry, i) => {
+      const position = entry.slot ?? i + 1;
+      return `
       <li class="person-row">
-        <span class="rank">${entry.slot ? String(entry.slot).padStart(2, '0') : '—'}</span>
-        <div class="person-name">${escape(entry.name)}</div>
-        <span class="person-sub">${entry.slot ? '已抽签' : '待抽签'}</span>
-      </li>`).join('');
-    visible('copyGroup', true);
+        <span class="rank">${String(position).padStart(2, '0')}</span>
+        <div><div class="person-name">${escape(entry.name)}</div><div class="person-sub">${entry.die ? entry.die + ' 点' : ''}</div></div>
+        <span class="person-sub">${fmtDate(weekDate(position))}</span>
+      </li>`;
+    }).join('');
+    renderRoundControls();
     show('drawView');
   }
 
@@ -157,9 +187,9 @@
       <div class="week-row">
         <div class="week-date"><strong>第 ${week.week} 周</strong>${fmtDate(week.date)}</div>
         <div class="speaker-chips">${week.speakers.map(p => `
-          <span class="speaker-chip"><b>${p.slot}</b>${escape(p.name)}</span>`).join('')}</div>
+          <span class="speaker-chip"><b>${p.slot}</b>${escape(p.name)}${p.die ? ' · ' + p.die + ' 点' : ''}</span>`).join('')}</div>
       </div>`).join('');
-    visible('copyGroup', true);
+    renderRoundControls();
     show('scheduleView');
   }
 
@@ -171,20 +201,25 @@
       return;
     }
     try {
-      const current = route();
       if (!quiet) {
-        round = overview = null;
-        visible('copyGroup', false);
+        round = overview = shareKey = null;
+        visible('shareBtn', false);
+        visible('refreshBtn', false);
         visible('editForm', false);
-        $('personName').replaceChildren();
+        $('personName').value = '';
         visible('createForm', false);
         show('homeView');
         status('正在加载…');
       }
-      if (current.round) {
-        const data = await rpc('round', {p_round: current.round});
+      const current = route();
+      if (current.round || current.share) {
+        const [data, key] = await Promise.all([
+          rpc('round', current.share ? {} : {p_round: current.round}),
+          current.group && !shareKey ? rpc('share', {p_round: current.round}) : shareKey,
+        ]);
         if (version !== revision) return;
-        if (JSON.stringify(round) !== JSON.stringify(data)) {
+        if (JSON.stringify(round) !== JSON.stringify(data) || shareKey !== key) {
+          shareKey = key;
           round = data;
           if (round.finished_at) renderSchedule();
           else renderDraw();
@@ -221,7 +256,7 @@
     } finally {
       busy = false;
       if (button === $('rollBtn')) renderSelection();
-      else if (button !== $('finishBtn') || round?.entries.every(entry => entry.slot)) {
+      else if (button !== $('finishBtn') || round?.entries.every(entry => entry.die ?? entry.slot)) {
         button.disabled = false;
       }
     }
@@ -245,26 +280,29 @@
       const input = {
         p_name: $('sessionName').value.trim(),
         p_start: $('sessionDate').value,
-        p_names: $('roster').value.split(/\r?\n/).map(name => name.trim()).filter(Boolean),
       };
       const signature = JSON.stringify(input);
       if (createAttempt?.signature !== signature) createAttempt = {signature, id: crypto.randomUUID()};
-      const id = await rpc('create', {p_round: createAttempt.id, ...input});
+      const id = await rpc('create_dice', {p_round: createAttempt.id, ...input});
       createAttempt = null;
       $('sessionName').value = '';
-      $('roster').value = '';
       navigate({...homeParams(), round: id});
     });
   });
 
-  $('personName').addEventListener('change', renderSelection);
-  $('rollBtn').addEventListener('click', () => action($('rollBtn'), async () => {
-    const current = route();
-    const name = $('personName').value;
-    $('diceBox').className = 'dice-box rolling';
-    await rpc('draw', {p_round: current.round, p_name: name});
-    if (route().round === current.round && route().group === current.group) await load(true);
-  }));
+  $('personName').addEventListener('input', renderSelection);
+  $('drawForm').addEventListener('submit', event => {
+    event.preventDefault();
+    action($('rollBtn'), async () => {
+      const from = location.hash;
+      const current = route();
+      const name = selectedEntry()?.name || typedName();
+      $('diceBox').className = 'dice-box rolling';
+      const method = current.share || !round.dice_mode ? 'draw' : 'roll';
+      await rpc(method, current.share ? {p_name: name} : {p_round: current.round, p_name: name});
+      if (location.hash === from) await load(true);
+    });
+  });
 
   $('editBtn').addEventListener('click', () => {
     $('editName').value = round.name;
@@ -290,17 +328,35 @@
 
   $('finishBtn').addEventListener('click', () => action($('finishBtn'), async () => {
     const current = route();
-    if (!window.confirm('生成并归档本期排班？')) return;
+    if (!window.confirm('结束抽签并归档当前排班？')) return;
     await rpc('finish', {p_round: current.round});
     if (route().round === current.round) await load(true);
   }));
 
-  $('copyGroup').addEventListener('click', () => {
-    copy(link(homeParams()), '群链接已复制');
+  $('shareBtn').addEventListener('click', () => {
+    if (shareKey) copy(link({share: shareKey}), '本场链接已复制');
   });
+  $('refreshBtn').addEventListener('click', () => action($('refreshBtn'), () => load(true)));
   $('historyList').addEventListener('click', event => {
     const id = event.target.closest('[data-round]')?.dataset.round;
     if (id) navigate({...homeParams(), round: id});
+  });
+  $('csvBtn').addEventListener('click', () => {
+    const rows = [['周次', '日期', '顺序', '姓名', '点数']];
+    for (const week of round.schedule) {
+      for (const person of week.speakers) rows.push([week.week, week.date, person.slot, person.name, person.die ?? '']);
+    }
+    const csv = rows.map(row => row.map(value => {
+      let cell = String(value);
+      if (/^[=+@-]/.test(cell)) cell = "'" + cell;
+      return '"' + cell.replace(/"/g, '""') + '"';
+    }).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], {type: 'text/csv;charset=utf-8'}));
+    const download = document.createElement('a');
+    download.href = url;
+    download.download = round.name.replace(/[\\/:*?"<>|]/g, '_') + '_汇报排班.csv';
+    download.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   $('copyBtn').addEventListener('click', () => {
     const lines = round.schedule.map(week => `第 ${week.week} 周（${fmtDate(week.date)}）：`
@@ -312,7 +368,7 @@
   $('newBtn').addEventListener('click', () => navigate(homeParams()));
   document.querySelector('.brand').addEventListener('click', event => {
     event.preventDefault();
-    try { navigate(homeParams()); } catch { navigate({}); }
+    try { if (!route().share) navigate(homeParams()); } catch { navigate({}); }
   });
 
   window.addEventListener('hashchange', () => load());
